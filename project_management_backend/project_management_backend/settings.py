@@ -37,7 +37,22 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "project_request",
+    "rest_framework",
+    "corsheaders",    
+    "django_cognito_jwt"
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT-PERMISSION-CLASSES': (
+        'rest_framework.permission.AllowAny'
+    ),
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "django_cognito_jwt.JSONWebTokenAuthentication",
+    ),
+}
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -47,6 +62,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware"
 ]
 
 ROOT_URLCONF = 'project_management_backend.urls'
@@ -75,8 +91,15 @@ WSGI_APPLICATION = 'project_management_backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'Kinetiq-DB-Schema',
+        'USER': 'postgres',
+        'PASSWORD': '82903',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+            'options': '-c search_path=public,project_management'
+        }
     }
 }
 
