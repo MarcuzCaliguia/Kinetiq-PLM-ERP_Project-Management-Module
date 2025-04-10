@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contractual Worker Requests</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.10.22/css/dataTables.bootstrap4.min.css" rel="stylesheet">
+    <style>
+        .badge {
+            font-size: 0.9em;
+        }
+        body {
+            padding: 20px;
+            background-color: #f8f9fc;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #f8f9fc;
+            border-bottom: 1px solid #e3e6f0;
+        }
+        .font-weight-bold {
+            font-weight: 700 !important;
+        }
+        .text-primary {
+            color: #4e73df !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <h1 class="h3 mb-0 text-gray-800">Contractual Worker Requests</h1>
+            <a href="/dashboard/" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+                <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Dashboard
+            </a>
+        </div>
+
+        <!-- Display Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- New Request Form Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">New Worker Request</h6>
+                <button class="btn btn-sm btn-primary" type="button" data-toggle="collapse" data-target="#newRequestForm" aria-expanded="false" aria-controls="newRequestForm">
+                    <i class="fas fa-plus fa-sm"></i> Toggle Form
+                </button>
+            </div>
+            <div class="collapse" id="newRequestForm">
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="job_title">Job Title <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="job_title" name="job_title" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="required_position">Required Position <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="required_position" name="required_position" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="employment_type">Employment Type <span class="text-danger">*</span></label>
+                                    <select class="form-control" id="employment_type" name="employment_type" required>
+                                        <option value="">Select Employment Type</option>
+                                        <option value="fixed-term">Fixed-term</option>
+                                        <option value="temporary employment">Temporary Employment</option>
+                                        <option value="freelance">Freelance</option>
+                                        <option value="internships">Internships</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="department">Department</label>
+                                    <select class="form-control" id="department" name="department">
+                                        <option value="">Select Department</option>
+                                        {% for dept in departments %}
+                                        <option value="{{ dept.dept_id }}">{{ dept.dept_name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="job_description">Job Description</label>
+                            <textarea class="form-control" id="job_description" name="job_description" rows="4"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Requests Table Card -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">HR Resource Requests</h6>
+            </div>
+            <div class="card-body">
+                {% if contractual_requests %}
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="contractualRequestsTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Project</th>
+                                <th>Department</th>
+                                <th>Job Title</th>
+                                <th>Required Position</th>
+                                <th>Employment Type</th>
+                                <th>Project Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in contractual_requests %}
+                            <tr>
+                                <td>{{ request.request_id }}</td>
+                                <td>{{ request.project_name }}</td>
+                                <td>{{ request.department }}</td>
+                                <td>{{ request.job_title }}</td>
+                                <td>{{ request.required_position }}</td>
+                                <td>{{ request.employment_type }}</td>
+                                <td>
+                                    {% if request.project_status == 'in progress' or request.project_status == 'ongoing' or request.project_status == 'In Progress' %}
+                                    <span class="badge badge-info">{{ request.project_status }}</span>
+                                    {% elif request.project_status == 'completed' or request.project_status == 'Completed' %}
+                                    <span class="badge badge-success">{{ request.project_status }}</span>
+                                    {% elif request.project_status == 'pending' or request.project_status == 'Pending' %}
+                                    <span class="badge badge-warning">{{ request.project_status }}</span>
+                                    {% elif request.project_status == 'cancelled' or request.project_status == 'Cancelled' %}
+                                    <span class="badge badge-danger">{{ request.project_status }}</span>
+                                    {% else %}
+                                    <span class="badge badge-secondary">{{ request.project_status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-info" data-toggle="modal" data-target="#detailsModal{{ forloop.counter }}">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No contractual worker requests found. 
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modals -->
+    {% for request in contractual_requests %}
+    <div class="modal fade" id="detailsModal{{ forloop.counter }}" tabindex="-1" role="dialog" aria-labelledby="detailsModalLabel{{ forloop.counter }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel{{ forloop.counter }}">Request Details: {{ request.request_id }}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Project Information</h6>
+                            <p><strong>Project ID:</strong> {{ request.project_id }}</p>
+                            <p><strong>Project Name:</strong> {{ request.project_name }}</p>
+                            <p><strong>Project Status:</strong> {{ request.project_status }}</p>
+                            <p><strong>Department:</strong> {{ request.department }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="font-weight-bold">Position Requirements</h6>
+                            <p><strong>Job Title:</strong> {{ request.job_title }}</p>
+                            <p><strong>Required Position:</strong> {{ request.required_position }}</p>
+                            <p><strong>Employment Type:</strong> {{ request.employment_type }}</p>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6 class="font-weight-bold">Job Description</h6>
+                            <p>{{ request.job_description }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- jQuery, Bootstrap, and DataTables JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.22/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.22/js/dataTables.bootstrap4.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            $('#contractualRequestsTable').DataTable({
+                "order": [[ 0, "desc" ]],  // Sort by request ID descending
+                "pageLength": 10,
+                "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]]
+            });
+        });
+    </script>
+</body>
+</html>

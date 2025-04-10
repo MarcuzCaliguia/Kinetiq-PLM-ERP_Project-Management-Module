@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
-
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -37,10 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "project_request",
-    "rest_framework",
-    "corsheaders",    
-    "django_cognito_jwt"
+    'rest_framework',
+    'corsheaders',
+    'project_request',
+    'project_tasks',
+    'warranty_monitoring',
+    'dashboard',
+    'project_planning',
+    'project_reports',
 ]
 
 REST_FRAMEWORK = {
@@ -50,6 +54,8 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "django_cognito_jwt.JSONWebTokenAuthentication",
     ),
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -70,7 +76,7 @@ ROOT_URLCONF = 'project_management_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -97,10 +103,12 @@ DATABASES = {
         'PASSWORD': '82903',
         'HOST': 'localhost',
         'PORT': '5432',
+        'CONN_MAX_AGE': 0,  # Disable connection pooling
         'OPTIONS': {
-            'options': '-c search_path=public,project_management'
-        }
-    }
+            'options': '-c search_path=project_management,human_resources,management,public'
+        },
+        'ATOMIC_REQUESTS': False,  # Disable transaction management for now
+}
 }
 
 

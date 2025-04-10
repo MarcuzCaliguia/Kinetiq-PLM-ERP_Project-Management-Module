@@ -1,27 +1,24 @@
+# project_request/serializers.py
 from rest_framework import serializers
-from .models import (
-    InternalProjectRequest,
-    InternalProjectDetails,
-    InternalProjectLabor,
-    InternalProjectTaskList
-)
+from .models import InternalProjectRequest, ExternalProjectRequest, ManagementApprovals
+
+class ManagementApprovalsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ManagementApprovals
+        fields = '__all__'
 
 class InternalProjectRequestSerializer(serializers.ModelSerializer):
+    approval_details = ManagementApprovalsSerializer(source='approval', read_only=True)
+    status = serializers.ReadOnlyField()
+    
     class Meta:
         model = InternalProjectRequest
         fields = '__all__'
 
-class InternalProjectDetailsSerializer(serializers.ModelSerializer):
+class ExternalProjectRequestSerializer(serializers.ModelSerializer):
+    approval_details = ManagementApprovalsSerializer(source='approval', read_only=True)
+    status = serializers.ReadOnlyField()
+    
     class Meta:
-        model = InternalProjectDetails
-        fields = '__all__'
-
-class InternalProjectLaborSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InternalProjectLabor
-        fields = '__all__'
-
-class InternalProjectTaskListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = InternalProjectTaskList
+        model = ExternalProjectRequest
         fields = '__all__'

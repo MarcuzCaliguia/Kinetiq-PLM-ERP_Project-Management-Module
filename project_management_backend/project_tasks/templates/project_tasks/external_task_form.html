@@ -1,0 +1,108 @@
+<!-- project_tasks/templates/project_tasks/external_task_form.html -->
+{% extends 'project_tasks/base.html' %}
+
+{% block title %}{% if form.instance.task_id %}Edit{% else %}Add{% endif %} External Task{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>{% if form.instance.task_id %}Edit{% else %}Add{% endif %} External Task</h1>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                        {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+            
+            {% if form.instance.task_id %}
+                <div class="mb-3">
+                    <label class="form-label">Task ID</label>
+                    <input type="text" class="form-control" value="{{ form.instance.task_id }}" readonly>
+                </div>
+            {% endif %}
+            
+            <div class="mb-3">
+                <label for="{{ form.project.id_for_label }}" class="form-label">Project</label>
+                {{ form.project }}
+                {% if form.project.errors %}
+                    <div class="text-danger">
+                        {% for error in form.project.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.task_description.id_for_label }}" class="form-label">Description</label>
+                {{ form.task_description }}
+                {% if form.task_description.errors %}
+                    <div class="text-danger">
+                        {% for error in form.task_description.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.task_status.id_for_label }}" class="form-label">Status</label>
+                {{ form.task_status }}
+                {% if form.task_status.errors %}
+                    <div class="text-danger">
+                        {% for error in form.task_status.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.task_deadline.id_for_label }}" class="form-label">Deadline</label>
+                {{ form.task_deadline }}
+                {% if form.task_deadline.errors %}
+                    <div class="text-danger">
+                        {% for error in form.task_deadline.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-3">
+                <label for="{{ form.project_labor.id_for_label }}" class="form-label">Assigned To</label>
+                {{ form.project_labor }}
+                {% if form.project_labor.errors %}
+                    <div class="text-danger">
+                        {% for error in form.project_labor.errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Save</button>
+                <a href="{% url 'task_list' %}" class="btn btn-secondary ms-2">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add Bootstrap form styling
+    $(document).ready(function() {
+        $('select').addClass('form-select');
+        $('input[type="text"], input[type="date"], textarea').addClass('form-control');
+    });
+</script>
+{% endblock %}

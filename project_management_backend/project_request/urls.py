@@ -1,18 +1,8 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import (
-    InternalProjectRequestViewSet,
-    InternalProjectDetailsViewSet,
-    InternalProjectLaborViewSet,
-    InternalProjectTaskListViewSet
-)
+from django.urls import path
+from .views import ProjectListView
 
-router = DefaultRouter()
-router.register(r'requests', InternalProjectRequestViewSet)
-router.register(r'projects', InternalProjectDetailsViewSet)
-router.register(r'labor', InternalProjectLaborViewSet)
-router.register(r'tasks', InternalProjectTaskListViewSet)
+app_name = 'project_request'
 
 urlpatterns = [
-    path('api/', include(router.urls)),
+    path('', ProjectListView.as_view(), name='project_list'),
 ]

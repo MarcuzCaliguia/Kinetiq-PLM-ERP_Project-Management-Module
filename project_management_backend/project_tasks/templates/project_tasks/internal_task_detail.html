@@ -1,0 +1,56 @@
+<!-- project_tasks/templates/project_tasks/internal_task_detail.html -->
+{% extends 'project_tasks/base.html' %}
+
+{% block title %}Task Details: {{ task.intrnl_task_id }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Task Details</h1>
+    <div>
+        <a href="{% url 'internal_task_edit' task.intrnl_task_id %}" class="btn btn-primary me-2">Edit</a>
+        <a href="{% url 'internal_task_delete' task.intrnl_task_id %}" class="btn btn-danger">Delete</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">{{ task.intrnl_task_id }}</h5>
+        <span class="status-badge status-{{ task.intrnl_task_status|lower|slugify }}">
+            {{ task.intrnl_task_status|title }}
+        </span>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-3 fw-bold">Project:</div>
+            <div class="col-md-9">{{ task.intrnl_project.intrnl_project_id|default:"N/A" }}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3 fw-bold">Project Name:</div>
+            <div class="col-md-9">{{ task.project_name }}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3 fw-bold">Description:</div>
+            <div class="col-md-9">{{ task.intrnl_task_description|default:"No description provided"|linebreaks }}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3 fw-bold">Deadline:</div>
+            <div class="col-md-9">{{ task.intrnl_task_deadline|date:"F d, Y" }}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3 fw-bold">Assigned To:</div>
+            <div class="col-md-9">{{ task.assigned_employee|default:"Unassigned" }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 border-top pt-3">
+    <div class="d-flex justify-content-between">
+        <h5>Attachments</h5>
+        <button class="btn btn-info">Attach File</button>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'task_list' %}" class="btn btn-secondary">Back to Tasks</a>
+</div>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'project_reports/base.html' %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Report{% else %}Create Report{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="header-container">
+    <h1>{% if form.instance.pk %}Edit Report{% else %}Create Report{% endif %}</h1>
+</div>
+
+<div class="form-container">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h4>Report Types</h4>
+                <div class="mb-3">
+                    <label for="{{ form.report_type.id_for_label }}" class="form-label">Type of Report</label>
+                    {{ form.report_type|add_class:"form-control" }}
+                </div>
+                
+                <h4>Report Name</h4>
+                <div class="mb-3">
+                    <label for="{{ form.report_title.id_for_label }}" class="form-label">Name</label>
+                    {{ form.report_title|add_class:"form-control" }}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.date_created.id_for_label }}" class="form-label">Date Created</label>
+                    {{ form.date_created|add_class:"form-control" }}
+                </div>
+                
+                <div class="mb-3">
+                    <label for="{{ form.assigned_to.id_for_label }}" class="form-label">Assigned Module</label>
+                    {{ form.assigned_to|add_class:"form-control" }}
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <h4>Report Details</h4>
+                <div class="mb-3">
+                    <label for="{{ form.received_from.id_for_label }}" class="form-label">Type Details</label>
+                    {{ form.received_from|add_class:"form-control" }}
+                </div>
+                
+                <h4>Description</h4>
+                <div class="mb-3">
+                    {{ form.description|add_class:"form-control" }}
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-end">
+            <a href="{% url 'project_reports:report_list' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Report</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

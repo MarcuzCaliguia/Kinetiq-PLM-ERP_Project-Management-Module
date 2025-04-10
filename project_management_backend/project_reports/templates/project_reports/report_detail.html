@@ -1,0 +1,34 @@
+{% extends 'project_reports/base.html' %}
+
+{% block title %}Report Detail{% endblock %}
+
+{% block content %}
+<div class="header-container">
+    <h1>Report Details</h1>
+    <div>
+        <a href="{% url 'project_reports:report_update' report.report_monitoring_id %}" class="btn btn-primary">Edit Report</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">{{ report.report_title }}</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Report ID:</strong> {{ report.report_monitoring_id }}</p>
+                <p><strong>Report Type:</strong> {{ report.report_type }}</p>
+                <p><strong>Date Created:</strong> {{ report.date_created|date:"Y-m-d" }}</p>
+                <p><strong>Assigned To:</strong> {{ report.assigned_to }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="card-footer">
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'project_reports:report_list' %}" class="btn btn-outline-secondary">Back to List</a>
+            <a href="{% url 'project_reports:report_delete' report.report_monitoring_id %}" class="btn btn-danger">Delete Report</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
