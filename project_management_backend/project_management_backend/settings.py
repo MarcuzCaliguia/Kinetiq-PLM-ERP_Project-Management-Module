@@ -99,7 +99,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'Kinetiq-DB-Schema',
-        'USER': 'postgres',
+        'USER': 'erp_user',
         'PASSWORD': '82903',
         'HOST': 'localhost',
         'PORT': '5432',

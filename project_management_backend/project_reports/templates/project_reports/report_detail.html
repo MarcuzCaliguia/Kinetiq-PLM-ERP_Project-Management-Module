@@ -1,34 +1,62 @@
-{% extends 'project_reports/base.html' %}
+{% extends "project_reports/base.html" %}
 
-{% block title %}Report Detail{% endblock %}
+{% block title %}Report Details{% endblock %}
 
 {% block content %}
-<div class="header-container">
-    <h1>Report Details</h1>
-    <div>
-        <a href="{% url 'project_reports:report_update' report.report_monitoring_id %}" class="btn btn-primary">Edit Report</a>
-    </div>
+<h2>Report Details</h2>
+
+<div style="margin-bottom: 20px;">
+    {% if request.user|can_edit_report:report %}
+    <a href="{% url 'project_reports:report_update' report.report_monitoring_id %}" class="btn">Edit</a>
+    {% endif %}
+    
+    {% if request.user|can_delete_report:report %}
+    <a href="{% url 'project_reports:report_delete' report.report_monitoring_id %}" class="btn btn-danger">Delete</a>
+    {% endif %}
+    
+    <a href="{% url 'project_reports:report_list' %}" class="btn btn-secondary">Back to List</a>
 </div>
 
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="card-title">{{ report.report_title }}</h5>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6">
-                <p><strong>Report ID:</strong> {{ report.report_monitoring_id }}</p>
-                <p><strong>Report Type:</strong> {{ report.report_type }}</p>
-                <p><strong>Date Created:</strong> {{ report.date_created|date:"Y-m-d" }}</p>
-                <p><strong>Assigned To:</strong> {{ report.assigned_to }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="card-footer">
-        <div class="d-flex justify-content-between">
-            <a href="{% url 'project_reports:report_list' %}" class="btn btn-outline-secondary">Back to List</a>
-            <a href="{% url 'project_reports:report_delete' report.report_monitoring_id %}" class="btn btn-danger">Delete Report</a>
-        </div>
-    </div>
-</div>
+<table>
+    <tr>
+        <th style="width: 150px;">Report ID:</th>
+        <td>{{ report.report_monitoring_id }}</td>
+    </tr>
+    {% if report.project_id %}
+    <tr>
+        <th>Project ID:</th>
+        <td>{{ report.project_id }}</td>
+    </tr>
+    {% endif %}
+    {% if report.intrnl_project_id %}
+    <tr>
+        <th>Internal Project ID:</th>
+        <td>{{ report.intrnl_project_id }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+        <th>Report Type:</th>
+        <td>{{ report.report_type }}</td>
+    </tr>
+    <tr>
+        <th>Report Title:</th>
+        <td>{{ report.report_title }}</td>
+    </tr>
+    <tr>
+        <th>Received From:</th>
+        <td>{{ report.received_from }}</td>
+    </tr>
+    <tr>
+        <th>Date Created:</th>
+        <td>{{ report.date_created|date:"Y-m-d" }}</td>
+    </tr>
+    <tr>
+        <th>Assigned To:</th>
+        <td>{{ report.assigned_to }}</td>
+    </tr>
+    <tr>
+        <th>Description:</th>
+        <td>{{ report.description|linebreaks }}</td>
+    </tr>
+</table>
 {% endblock %}

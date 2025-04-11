@@ -17,7 +17,16 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include, re_path
 from project_request.views import ProjectListView
+from rest_framework.routers import DefaultRouter
 from dashboard.views import DashboardView
+from project_reports import views
+from project_reports import api
+
+# Create a router for the API
+router = DefaultRouter()
+router.register(r'reports', api.ReportMonitoringViewSet)
+router.register(r'external-projects', api.ExternalProjectViewSet)
+router.register(r'internal-projects', api.InternalProjectViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -28,4 +37,7 @@ urlpatterns = [
     path('dashboard/', include('dashboard.urls')),
     path('project-planning/', include('project_planning.urls', namespace='project_planning')),
     path('reports/', include('project_reports.urls')),
+    
+    # API endpoints
+    path('api/', include(router.urls)),
 ]
