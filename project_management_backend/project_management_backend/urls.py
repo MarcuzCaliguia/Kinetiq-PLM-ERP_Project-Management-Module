@@ -31,7 +31,7 @@ router.register(r'internal-projects', api.InternalProjectViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('projects/', include('project_request.urls')),
-    path('tasks/', include('project_tasks.urls')),
+    path('project-tasks/', include('project_tasks.urls')),
     path('warranties/', include('warranty_monitoring.urls')),
     path('', DashboardView.as_view(), name='home'),
     path('dashboard/', include('dashboard.urls')),

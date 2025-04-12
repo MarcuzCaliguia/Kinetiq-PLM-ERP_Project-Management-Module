@@ -1,402 +1,73 @@
-<!-- project_tasks/templates/project_tasks/calendar.html -->
 {% extends 'project_tasks/base.html' %}
 
-{% block title %}Task Calendar{% endblock %}
-
 {% block extra_css %}
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.css' rel='stylesheet' />
 <style>
-    /* Calendar Styles */
-    .calendar-container {
-        display: flex;
-        flex-direction: row;
-        gap: 20px;
+    #calendar {
+        max-width: 1000px;
+        margin: 0 auto;
     }
-    
-    .calendar-sidebar {
-        width: 300px;
-        flex-shrink: 0;
-    }
-    
-    .calendar-main {
-        flex-grow: 1;
-    }
-    
-    .month-selector {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-    }
-    
-    .month-selector h2 {
-        margin: 0 15px;
-        font-size: 1.5rem;
-    }
-    
-    .mini-calendar {
-        margin-bottom: 30px;
-    }
-    
-    .mini-calendar table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    .mini-calendar th, .mini-calendar td {
-        text-align: center;
-        padding: 8px;
-        border: 1px solid #dee2e6;
-    }
-    
-    .mini-calendar th {
-        background-color: #f8f9fa;
-        font-weight: 500;
-    }
-    
-    .mini-calendar td {
+    .fc-event {
         cursor: pointer;
     }
-    
-    .mini-calendar td:hover {
-        background-color: #e9ecef;
-    }
-    
-    .mini-calendar td.today {
-        font-weight: bold;
-        background-color: #e3f2fd;
-    }
-    
-    .mini-calendar td.selected {
-        background-color: #4caf50;
-        color: white;
-        border-radius: 50%;
-    }
-    
-    .mini-calendar td.other-month {
-        color: #adb5bd;
-    }
-    
-    .mini-calendar td.has-tasks {
-        position: relative;
-    }
-    
-    .mini-calendar td.has-tasks::after {
-        content: '';
-        position: absolute;
-        bottom: 2px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background-color: #00bcd4;
-    }
-    
-    .status-legend {
-        margin-top: 20px;
-    }
-    
-    .status-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-    
-    .status-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 10px;
-    }
-    
-    .status-complete {
-        background-color: #00bcd4;
-    }
-    
-    .status-ongoing {
-        background-color: #ff9800;
-    }
-    
-    .status-paused {
-        background-color: #9e9e9e;
-    }
-    
-    .main-calendar {
-        width: 100%;
-    }
-    
-    .main-calendar table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    
-    .main-calendar th {
-        background-color: #e0f7fa;
-        padding: 10px;
-        text-align: center;
-        border: 1px solid #b2ebf2;
-    }
-    
-    .main-calendar td {
-        height: 100px;
-        vertical-align: top;
-        border: 1px solid #b2ebf2;
-        padding: 5px;
-    }
-    
-    .main-calendar .date-number {
-        font-weight: bold;
-        margin-bottom: 5px;
-        text-align: right;
-    }
-    
-    .main-calendar .weekend {
-        color: #00bcd4;
-    }
-    
-    .main-calendar .other-month {
-        color: #adb5bd;
-        background-color: #f8f9fa;
-    }
-    
-    .main-calendar .today {
-        background-color: #e3f2fd;
-    }
-    
-    .task-item {
-        margin-bottom: 5px;
-        padding: 5px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        cursor: pointer;
-    }
-    
-    .task-completed {
-        background-color: #e0f7fa;
-        border-left: 3px solid #00bcd4;
-    }
-    
-    .task-ongoing {
-        background-color: #fff3e0;
-        border-left: 3px solid #ff9800;
-    }
-    
-    .task-at-risk {
-        background-color: #ffebee;
-        border-left: 3px solid #f44336;
-    }
-    
-    .task-paused {
-        background-color: #f5f5f5;
-        border-left: 3px solid #9e9e9e;
-    }
-    
-    .add-task-btn {
-        display: block;
-        margin-top: 5px;
-        font-size: 0.8rem;
-        color: #00bcd4;
-        cursor: pointer;
-    }
-    
-    .add-task-btn:hover {
-        text-decoration: underline;
-    }
-    
-    .week-number {
-        width: 30px;
-        background-color: #e0f7fa;
-        text-align: center;
-        font-weight: bold;
-        color: #00838f;
-    }
-    
-    /* Task Modal Styles */
-    .task-modal .modal-header {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-    
-    .task-modal .task-date {
-        font-size: 0.9rem;
-        color: #6c757d;
-    }
-    
-    .task-modal .task-status {
-        display: inline-block;
-        padding: 3px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        margin-left: 10px;
-    }
-    
-    .task-modal .task-list {
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    
-    .task-modal .task-card {
-        margin-bottom: 15px;
-        border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    }
-    
-    .task-modal .task-card-header {
-        padding: 10px 15px;
-        border-bottom: 1px solid #dee2e6;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .task-modal .task-card-body {
-        padding: 15px;
-    }
-    
-    .task-modal .task-actions {
-        margin-top: 10px;
+    .event-tooltip {
+        max-width: 300px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Task Calendar</h1>
-    <div>
-        <a href="{% url 'task_list' %}" class="btn btn-outline-secondary me-2">
-            <i class="fas fa-list me-1"></i> Task List
-        </a>
-        <a href="{% if task_type == 'external' %}{% url 'external_task_add' %}{% else %}{% url 'internal_task_add' %}{% endif %}" class="btn btn-primary">
-            <i class="fas fa-plus me-1"></i> Add Task
-        </a>
-    </div>
-</div>
-
-<div class="calendar-container">
-    <!-- Calendar Sidebar -->
-    <div class="calendar-sidebar">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Choose Month</h5>
-            </div>
-            <div class="card-body">
-                <div class="month-selector mb-3">
-                    <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-chevron-left"></i>
-                    </a>
-                    <h2>{{ month_name }} {{ year }}</h2>
-                    <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="fas fa-chevron-right"></i>
-                    </a>
-                </div>
-                
-                <div class="mini-calendar">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Su</th>
-                                <th>Mo</th>
-                                <th>Tu</th>
-                                <th>We</th>
-                                <th>Th</th>
-                                <th>Fr</th>
-                                <th>Sa</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for week in calendar %}
-                                <tr>
-                                    {% for day in week %}
-                                        {% if day != 0 %}
-                                            <td id="mini-{{ year }}-{{ month }}-{{ day }}" 
-                                                class="{% if year == today.year and month == today.month and day == today.day %}today{% endif %} mini-day"
-                                                data-date="{{ year }}-{% if month < 10 %}0{% endif %}{{ month }}-{% if day < 10 %}0{% endif %}{{ day }}">
-                                                {{ day }}
-                                            </td>
-                                        {% else %}
-                                            <td class="other-month"></td>
-                                        {% endif %}
-                                    {% endfor %}
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="status-legend">
-                    <h6>Status</h6>
-                    <div class="status-item">
-                        <span class="status-dot status-complete"></span>
-                        <span>Complete</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-dot status-ongoing"></span>
-                        <span>Ongoing Production</span>
-                    </div>
-                    <div class="status-item">
-                        <span class="status-dot status-paused"></span>
-                        <span>Pause</span>
-                    </div>
-                </div>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Task Calendar</h1>
+        <div>
+            <a href="{% url 'task_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list-ul me-1"></i> List View
+            </a>
+            <div class="btn-group ms-2">
+                <button type="button" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-plus-lg me-1"></i> Add Task
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'new_internal_task' %}">Internal Task</a></li>
+                    <li><a class="dropdown-item" href="{% url 'new_external_task' %}">External Task</a></li>
+                </ul>
             </div>
         </div>
     </div>
     
-    <!-- Main Calendar -->
-    <div class="calendar-main">
-        <div class="card">
-            <div class="card-header bg-light">
-                <h3 class="mb-0 text-center">{{ month_name|upper }}</h3>
-            </div>
-            <div class="card-body p-0">
-                <div class="main-calendar">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 30px;"></th>
-                                <th>Mo</th>
-                                <th>Tu</th>
-                                <th>We</th>
-                                <th>Th</th>
-                                <th>Fr</th>
-                                <th class="weekend">Sa</th>
-                                <th class="weekend">Su</th>
-                            </tr>
-                        </thead>
-                        <tbody id="main-calendar-body">
-                            <!-- Calendar will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="card mb-4">
+        <div class="card-body">
+            <div id="calendar"></div>
         </div>
     </div>
 </div>
 
-<!-- Task Modal -->
-<div class="modal fade task-modal" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+<!-- Event Details Modal -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <div>
-                    <h5 class="modal-title" id="taskModalLabel">Tasks for <span id="modal-date"></span></h5>
-                    <span class="task-date" id="modal-date-full"></span>
-                </div>
+                <h5 class="modal-title" id="eventTitle">Task Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div id="no-tasks-message" style="display: none;">
-                    <p class="text-center text-muted">No tasks scheduled for this date.</p>
+            <div class="modal-body" id="eventBody">
+                <div class="mb-3">
+                    <strong>Description:</strong>
+                    <p id="eventDescription"></p>
                 </div>
-                <div class="task-list" id="modal-task-list">
-                    <!-- Tasks will be populated here -->
+                <div class="mb-3">
+                    <strong>Deadline:</strong>
+                    <p id="eventDate"></p>
+                </div>
+                <div class="mb-3">
+                    <strong>Status:</strong>
+                    <span id="eventStatus" class="badge"></span>
                 </div>
             </div>
             <div class="modal-footer">
-                <a href="#" class="btn btn-primary" id="add-task-link">Add Task</a>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="#" id="viewTaskBtn" class="btn btn-primary">View Task</a>
             </div>
         </div>
     </div>
@@ -404,406 +75,52 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js'></script>
 <script>
-    // Store tasks data from the server
-    const tasksData = {{ tasks_by_date|safe }};
-    
-    // Format date for display
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('en-US', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        });
-    }
-    
-    // Get status class for a task
-    function getStatusClass(status) {
-        const statusLower = status.toLowerCase();
-        if (statusLower.includes('completed')) {
-            return 'task-completed';
-        } else if (statusLower.includes('at risk')) {
-            return 'task-at-risk';
-        } else if (statusLower.includes('ongoing')) {
-            return 'task-ongoing';
-        } else if (statusLower.includes('pause')) {
-            return 'task-paused';
-        }
-        return '';
-    }
-    
-    // Generate calendar weeks
-    function generateCalendar() {
-        const year = {{ year }};
-        const month = {{ month }};
-        const today = new Date();
-        const currentDate = new Date(year, month - 1, 1);
-        
-        // Get the first day of the month
-        const firstDay = new Date(year, month - 1, 1).getDay();
-        
-        // Get the last day of the month
-        const lastDay = new Date(year, month, 0).getDate();
-        
-        // Get the last day of the previous month
-        const prevMonthLastDay = new Date(year, month - 1, 0).getDate();
-        
-        // Calculate the number of days to show from the previous month
-        let prevMonthDays = firstDay - 1;
-        if (prevMonthDays < 0) prevMonthDays = 6; // Adjust for Sunday as first day
-        
-        // Calculate the number of weeks to display
-        const totalDays = prevMonthDays + lastDay;
-        const totalWeeks = Math.ceil(totalDays / 7);
-        
-        const calendarBody = document.getElementById('main-calendar-body');
-        calendarBody.innerHTML = '';
-        
-        let date = 1;
-        let nextMonthDate = 1;
-        
-        for (let i = 0; i < totalWeeks; i++) {
-            const row = document.createElement('tr');
-            
-            // Add week number
-            const weekCell = document.createElement('td');
-            weekCell.className = 'week-number';
-            weekCell.textContent = i + 1;
-            row.appendChild(weekCell);
-            
-            for (let j = 0; j < 7; j++) {
-                const cell = document.createElement('td');
-                
-                // Previous month days
-                if (i === 0 && j < prevMonthDays) {
-                    const prevDate = prevMonthLastDay - prevMonthDays + j + 1;
-                    let prevMonth = month - 1;
-                    let prevYear = year;
-                    
-                    if (prevMonth === 0) {
-                        prevMonth = 12;
-                        prevYear = year - 1;
-                    }
-                    
-                    const dateStr = `${prevYear}-${prevMonth.toString().padStart(2, '0')}-${prevDate.toString().padStart(2, '0')}`;
-                    
-                    cell.className = 'other-month';
-                    cell.innerHTML = `
-                        <div class="date-number">${prevDate}</div>
-                        <div class="tasks-container" data-date="${dateStr}"></div>
-                    `;
-                    cell.setAttribute('data-date', dateStr);
-                }
-                // Current month days
-                else if (date <= lastDay) {
-                    const dateStr = `${year}-${month.toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
-                    
-                    let classes = [];
-                    if (j === 5 || j === 6) classes.push('weekend');
-                    if (year === today.getFullYear() && month === today.getMonth() + 1 && date === today.getDate()) {
-                        classes.push('today');
-                    }
-                    
-                    cell.className = classes.join(' ');
-                    cell.innerHTML = `
-                        <div class="date-number">${date}</div>
-                        <div class="tasks-container" data-date="${dateStr}"></div>
-                        <a href="{% url 'calendar_add_task' 'date_placeholder' %}?type=internal" class="add-task-btn" data-date="${dateStr}">+ Add Task</a>
-                    `;
-                    cell.setAttribute('data-date', dateStr);
-                    
-                    date++;
-                }
-                // Next month days
-                else {
-                    let nextMonth = month + 1;
-                    let nextYear = year;
-                    
-                    if (nextMonth === 13) {
-                        nextMonth = 1;
-                        nextYear = year + 1;
-                    }
-                    
-                    const dateStr = `${nextYear}-${nextMonth.toString().padStart(2, '0')}-${nextMonthDate.toString().padStart(2, '0')}`;
-                    
-                    cell.className = 'other-month';
-                    cell.innerHTML = `
-                        <div class="date-number">${nextMonthDate}</div>
-                        <div class="tasks-container" data-date="${dateStr}"></div>
-                    `;
-                    cell.setAttribute('data-date', dateStr);
-                    
-                    nextMonthDate++;
-                }
-                
-                row.appendChild(cell);
-            }
-            
-            calendarBody.appendChild(row);
-        }
-        
-        // Update task links
-        document.querySelectorAll('.add-task-btn').forEach(btn => {
-            const dateStr = btn.getAttribute('data-date');
-            btn.href = "{% url 'calendar_add_task' 'date_placeholder' %}".replace('date_placeholder', dateStr);
-        });
-        
-        // Populate tasks
-        populateTasks();
-    }
-    
-    // Populate tasks in the calendar
-    function populateTasks() {
-        // Mark dates with tasks in mini calendar
-        for (const dateStr in tasksData) {
-            const dateParts = dateStr.split('-');
-            const year = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]);
-            const day = parseInt(dateParts[2]);
-            
-            const miniDay = document.getElementById(`mini-${year}-${month}-${day}`);
-            if (miniDay) {
-                miniDay.classList.add('has-tasks');
-            }
-            
-            // Add tasks to main calendar
-            const tasksContainer = document.querySelector(`.tasks-container[data-date="${dateStr}"]`);
-            if (tasksContainer) {
-                const tasks = tasksData[dateStr];
-                
-                tasks.forEach(task => {
-                    const taskItem = document.createElement('div');
-                    taskItem.className = `task-item ${getStatusClass(task.status)}`;
-                    taskItem.textContent = task.description || task.id;
-                    taskItem.setAttribute('data-task-id', task.id);
-                    taskItem.setAttribute('data-task-type', task.type);
-                    
-                    // Add click event to show task details
-                    taskItem.addEventListener('click', () => {
-                        showTaskDetails(dateStr, task);
-                    });
-                    
-                    tasksContainer.appendChild(taskItem);
-                });
-            }
-        }
-        
-        // Add click event to date cells to show all tasks for that date
-        document.querySelectorAll('td[data-date]').forEach(cell => {
-            cell.addEventListener('click', function(e) {
-                // Don't trigger if clicking on a task or add task button
-                if (e.target.classList.contains('task-item') || e.target.classList.contains('add-task-btn')) {
-                    return;
-                }
-                
-                const dateStr = this.getAttribute('data-date');
-                showDateTasks(dateStr);
-            });
-        });
-    }
-    
-    // Show task details in modal
-    function showTaskDetails(dateStr, task) {
-        const modal = new bootstrap.Modal(document.getElementById('taskModal'));
-        const modalDate = document.getElementById('modal-date');
-        const modalDateFull = document.getElementById('modal-date-full');
-        const modalTaskList = document.getElementById('modal-task-list');
-        const noTasksMessage = document.getElementById('no-tasks-message');
-        const addTaskLink = document.getElementById('add-task-link');
-        
-        // Format the date
-        const date = new Date(dateStr);
-        modalDate.textContent = dateStr;
-        modalDateFull.textContent = formatDate(dateStr);
-        
-        // Clear previous tasks
-        modalTaskList.innerHTML = '';
-        
-        // Show the selected task
-        let statusClass = '';
-        let statusColor = '';
-        
-        if (task.status === 'completed') {
-            statusClass = 'bg-info text-white';
-            statusColor = '#00bcd4';
-        } else if (task.status === 'canceled') {
-            statusClass = 'bg-danger text-white';
-            statusColor = '#f44336';
-        } else if (task.status === 'in_progress') {
-            statusClass = 'bg-warning text-dark';
-            statusColor = '#ff9800';
-        } else if (task.status === 'pending') {
-            statusClass = 'bg-secondary text-white';
-            statusColor = '#9e9e9e';
-        } else {
-            statusClass = 'bg-secondary text-white';
-            statusColor = '#9e9e9e';
-        }
-        
-        taskCard.innerHTML = `
-            <div class="task-card-header">
-                <div>
-                    <strong>${task.id}</strong>
-                    <span class="task-status ${statusClass}" style="background-color: ${statusColor};">${task.status}</span>
-                </div>
-                <div>
-                    <span class="badge bg-primary">${task.type.charAt(0).toUpperCase() + task.type.slice(1)}</span>
-                </div>
-            </div>
-            <div class="task-card-body">
-                <div><strong>Project ID:</strong> ${task.project_id}</div>
-                <div><strong>Description:</strong> ${task.description || 'No description'}</div>
-                <div class="task-actions">
-                    <a href="${task.type === 'internal' ? 
-                        "{% url 'internal_task_detail' 'placeholder' %}".replace('placeholder', task.id) : 
-                        "{% url 'external_task_detail' 'placeholder' %}".replace('placeholder', task.id)}" 
-                        class="btn btn-sm btn-outline-primary">
-                        View Details
-                    </a>
-                    <a href="${task.type === 'internal' ? 
-                        "{% url 'internal_task_edit' 'placeholder' %}".replace('placeholder', task.id) : 
-                        "{% url 'external_task_edit' 'placeholder' %}".replace('placeholder', task.id)}" 
-                        class="btn btn-sm btn-outline-secondary">
-                        Edit
-                    </a>
-                </div>
-            </div>
-        `;
-        
-        modalTaskList.appendChild(taskCard);
-        noTasksMessage.style.display = 'none';
-        modalTaskList.style.display = 'block';
-        
-        // Update add task link
-        addTaskLink.href = "{% url 'calendar_add_task' 'date_placeholder' %}".replace('date_placeholder', dateStr);
-        
-        // Show the modal
-        modal.show();
-    }
-    
-    // Show all tasks for a date in modal
-    function showDateTasks(dateStr) {
-        const modal = new bootstrap.Modal(document.getElementById('taskModal'));
-        const modalDate = document.getElementById('modal-date');
-        const modalDateFull = document.getElementById('modal-date-full');
-        const modalTaskList = document.getElementById('modal-task-list');
-        const noTasksMessage = document.getElementById('no-tasks-message');
-        const addTaskLink = document.getElementById('add-task-link');
-        
-        // Format the date
-        const date = new Date(dateStr);
-        modalDate.textContent = dateStr;
-        modalDateFull.textContent = formatDate(dateStr);
-        
-        // Clear previous tasks
-        modalTaskList.innerHTML = '';
-        
-        // Get tasks for this date
-        const tasks = tasksData[dateStr] || [];
-        
-        if (tasks.length === 0) {
-            noTasksMessage.style.display = 'block';
-            modalTaskList.style.display = 'none';
-        } else {
-            // Add each task to the modal
-            tasks.forEach(task => {
-                const taskCard = document.createElement('div');
-                taskCard.className = 'task-card mb-3';
-                
-                let statusClass = '';
-                let statusColor = '';
-                
-                if (task.status.toLowerCase().includes('completed')) {
-                    statusClass = 'bg-info text-white';
-                    statusColor = '#00bcd4';
-                } else if (task.status.toLowerCase().includes('at risk')) {
-                    statusClass = 'bg-danger text-white';
-                    statusColor = '#f44336';
-                } else if (task.status.toLowerCase().includes('ongoing')) {
-                    statusClass = 'bg-warning text-dark';
-                    statusColor = '#ff9800';
-                } else {
-                    statusClass = 'bg-secondary text-white';
-                    statusColor = '#9e9e9e';
-                }
-                
-                taskCard.innerHTML = `
-                    <div class="task-card-header">
-                        <div>
-                            <strong>${task.id}</strong>
-                            <span class="task-status ${statusClass}" style="background-color: ${statusColor};">${task.status}</span>
-                        </div>
-                        <div>
-                            <span class="badge bg-primary">${task.type.charAt(0).toUpperCase() + task.type.slice(1)}</span>
-                        </div>
-                    </div>
-                    <div class="task-card-body">
-                        <div><strong>Project ID:</strong> ${task.project_id}</div>
-                        <div><strong>Description:</strong> ${task.description || 'No description'}</div>
-                        <div class="task-actions">
-                            <a href="${task.type === 'internal' ? 
-                                "{% url 'internal_task_detail' 'placeholder' %}".replace('placeholder', task.id) : 
-                                "{% url 'external_task_detail' 'placeholder' %}".replace('placeholder', task.id)}" 
-                                class="btn btn-sm btn-outline-primary">
-                                View Details
-                            </a>
-                            <a href="${task.type === 'internal' ? 
-                                "{% url 'internal_task_edit' 'placeholder' %}".replace('placeholder', task.id) : 
-                                "{% url 'external_task_edit' 'placeholder' %}".replace('placeholder', task.id)}" 
-                                class="btn btn-sm btn-outline-secondary">
-                                Edit
-                            </a>
-                        </div>
-                    </div>
-                `;
-                
-                modalTaskList.appendChild(taskCard);
-            });
-            
-            noTasksMessage.style.display = 'none';
-            modalTaskList.style.display = 'block';
-        }
-        
-        // Update add task link
-        addTaskLink.href = "{% url 'calendar_add_task' 'date_placeholder' %}".replace('date_placeholder', dateStr);
-        
-        // Show the modal
-        modal.show();
-    }
-    
-    // Add click events to mini calendar days
-    document.querySelectorAll('.mini-day').forEach(day => {
-        day.addEventListener('click', function() {
-            const dateStr = this.getAttribute('data-date');
-            
-            // Remove selected class from all days
-            document.querySelectorAll('.mini-day').forEach(d => {
-                d.classList.remove('selected');
-            });
-            
-            // Add selected class to clicked day
-            this.classList.add('selected');
-            
-            // Show tasks for this date
-            showDateTasks(dateStr);
-        });
-    });
-    
-    // Initialize the calendar
     document.addEventListener('DOMContentLoaded', function() {
-        generateCalendar();
+        const calendarEl = document.getElementById('calendar');
+        const eventModal = new bootstrap.Modal(document.getElementById('eventModal'));
         
-        // Select today in mini calendar if it's in the current month
-        const today = new Date();
-        if (today.getFullYear() === {{ year }} && today.getMonth() + 1 === {{ month }}) {
-            const todayElement = document.getElementById(`mini-{{ year }}-{{ month }}-${today.getDate()}`);
-            if (todayElement) {
-                todayElement.classList.add('selected');
+        // Parse events from JSON
+        const events = {{ events_json|safe }};
+        
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,listMonth'
+            },
+            events: events,
+            eventClick: function(info) {
+                // Prevent navigating to the URL
+                info.jsEvent.preventDefault();
+                
+                // Set modal content
+                document.getElementById('eventTitle').textContent = info.event.title;
+                document.getElementById('eventDescription').textContent = info.event.extendedProps.description || 'No description';
+                document.getElementById('eventDate').textContent = info.event.start.toLocaleDateString();
+                
+                // Set status badge
+                const statusBadge = document.getElementById('eventStatus');
+                statusBadge.textContent = info.event.backgroundColor === '#ffc107' ? 'Pending' :
+                                         info.event.backgroundColor === '#0d6efd' ? 'In Progress' :
+                                         info.event.backgroundColor === '#198754' ? 'Completed' : 'Cancelled';
+                                         
+                statusBadge.className = 'badge';
+                statusBadge.classList.add(info.event.backgroundColor === '#ffc107' ? 'bg-warning' :
+                                         info.event.backgroundColor === '#0d6efd' ? 'bg-primary' :
+                                         info.event.backgroundColor === '#198754' ? 'bg-success' : 'bg-secondary');
+                
+                // Set view task button URL
+                document.getElementById('viewTaskBtn').href = info.event.url;
+                
+                // Show modal
+                eventModal.show();
             }
-        }
+        });
+        
+        calendar.render();
     });
 </script>
 {% endblock %}
-        
