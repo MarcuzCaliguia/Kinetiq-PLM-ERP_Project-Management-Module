@@ -1,4 +1,3 @@
-# tests.py
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth.models import User
@@ -9,7 +8,7 @@ from .models import InternalProjectTask, ExternalProjectTask
 
 class InternalTaskModelTests(TestCase):
     def setUp(self):
-        # Create a sample internal task
+
         self.task = InternalProjectTask.objects.create(
             intrnl_task_id="TEST-001",
             intrnl_project_id="PROJ-001",
@@ -20,17 +19,14 @@ class InternalTaskModelTests(TestCase):
         )
     
     def test_task_creation(self):
-        """Test that a task can be created"""
         self.assertEqual(self.task.intrnl_task_id, "TEST-001")
         self.assertEqual(self.task.intrnl_task_status, "pending")
     
     def test_task_str_representation(self):
-        """Test the string representation of a task"""
         self.assertEqual(str(self.task), "TEST-001")
 
 class ExternalTaskModelTests(TestCase):
     def setUp(self):
-        # Create a sample external task
         self.task = ExternalProjectTask.objects.create(
             task_id="EXT-TEST-001",
             project_id="EXT-PROJ-001",
@@ -41,18 +37,15 @@ class ExternalTaskModelTests(TestCase):
         )
     
     def test_task_creation(self):
-        """Test that a task can be created"""
         self.assertEqual(self.task.task_id, "EXT-TEST-001")
         self.assertEqual(self.task.task_status, "pending")
     
     def test_task_str_representation(self):
-        """Test the string representation of a task"""
         self.assertEqual(str(self.task), "EXT-TEST-001")
 
 class TaskListViewTests(TestCase):
     def setUp(self):
         self.client = Client()
-        # Create sample tasks
         InternalProjectTask.objects.create(
             intrnl_task_id="INT-001",
             intrnl_project_id="PROJ-001",
@@ -71,14 +64,12 @@ class TaskListViewTests(TestCase):
         )
     
     def test_task_list_view(self):
-        """Test that the task list view returns a 200 response"""
         response = self.client.get(reverse('task_list'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "INT-001")
         self.assertContains(response, "EXT-001")
     
     def test_task_list_filtering(self):
-        """Test that the task list can be filtered"""
         response = self.client.get(reverse('task_list') + '?type=internal')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "INT-001")
@@ -87,7 +78,6 @@ class TaskListViewTests(TestCase):
 class TaskDetailViewTests(TestCase):
     def setUp(self):
         self.client = Client()
-        # Create sample tasks
         self.internal_task = InternalProjectTask.objects.create(
             intrnl_task_id="INT-001",
             intrnl_project_id="PROJ-001",
@@ -106,28 +96,24 @@ class TaskDetailViewTests(TestCase):
         )
     
     def test_internal_task_detail_view(self):
-        """Test that the internal task detail view returns a 200 response"""
         response = self.client.get(reverse('task_detail', args=['internal', 'INT-001']))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "INT-001")
         self.assertContains(response, "Internal task 1")
     
     def test_external_task_detail_view(self):
-        """Test that the external task detail view returns a 200 response"""
         response = self.client.get(reverse('task_detail', args=['external', 'EXT-001']))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "EXT-001")
         self.assertContains(response, "External task 1")
     
     def test_nonexistent_task_detail_view(self):
-        """Test that the task detail view returns a 404 for nonexistent tasks"""
         response = self.client.get(reverse('task_detail', args=['internal', 'NONEXISTENT']))
         self.assertEqual(response.status_code, 404)
 
 class APITests(APITestCase):
     def setUp(self):
         self.client = APIClient()
-        # Create a user
         self.user = User.objects.create_user(
             username='testuser',
             email='test@example.com',
@@ -135,7 +121,6 @@ class APITests(APITestCase):
         )
         self.client.force_authenticate(user=self.user)
         
-        # Create sample tasks
         self.internal_task = InternalProjectTask.objects.create(
             intrnl_task_id="INT-001",
             intrnl_project_id="PROJ-001",
@@ -154,7 +139,6 @@ class APITests(APITestCase):
         )
     
     def test_get_internal_tasks(self):
-        """Test retrieving internal tasks via API"""
         url = reverse('internalprojecttask-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -170,7 +154,6 @@ class APITests(APITestCase):
         self.assertEqual(response.data[0]['task_id'], "EXT-001")
     
     def test_create_internal_task(self):
-        """Test creating an internal task via API"""
         url = reverse('internalprojecttask-list')
         data = {
             'intrnl_project_id': 'PROJ-002',
@@ -185,7 +168,6 @@ class APITests(APITestCase):
         self.assertEqual(InternalProjectTask.objects.last().intrnl_task_description, 'New internal task')
     
     def test_update_internal_task(self):
-        """Test updating an internal task via API"""
         url = reverse('internalprojecttask-detail', args=[self.internal_task.intrnl_task_id])
         data = {
             'intrnl_project_id': 'PROJ-001',
@@ -201,14 +183,12 @@ class APITests(APITestCase):
         self.assertEqual(self.internal_task.intrnl_task_status, 'in_progress')
     
     def test_delete_internal_task(self):
-        """Test deleting an internal task via API"""
         url = reverse('internalprojecttask-detail', args=[self.internal_task.intrnl_task_id])
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(InternalProjectTask.objects.count(), 0)
     
     def test_bulk_update_status(self):
-        """Test bulk updating task statuses via API"""
         url = reverse('bulk_update_status')
         data = {
             'task_ids': [self.internal_task.intrnl_task_id, self.external_task.task_id],
@@ -218,10 +198,8 @@ class APITests(APITestCase):
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
-        # Refresh from database
         self.internal_task.refresh_from_db()
         self.external_task.refresh_from_db()
         
-        # Check that statuses were updated
         self.assertEqual(self.internal_task.intrnl_task_status, 'completed')
         self.assertEqual(self.external_task.task_status, 'completed')

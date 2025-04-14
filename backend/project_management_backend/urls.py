@@ -20,7 +20,7 @@ from rest_framework.routers import DefaultRouter
 from project_reports import views
 from project_reports import api
 
-# Create a router for the API
+
 router = DefaultRouter()
 router.register(r'reports', api.ReportMonitoringViewSet)
 router.register(r'external-projects', api.ExternalProjectViewSet)
@@ -31,6 +31,7 @@ urlpatterns = [
     path('project-tasks/', include('project_tasks.urls')),
     path('reports/', include('project_reports.urls')),
     
-    # API endpoints
+    path('api/project-autocomplete/', views.project_autocomplete, name='project_autocomplete'),
     path('api/', include(router.urls)),
+    
 ]

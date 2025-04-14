@@ -1,4 +1,3 @@
-# views.py
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -46,19 +45,16 @@ def create_external_task(request):
     try:
         logger.info(f"Creating external task with data: {request.data}")
         
-        # Extract data from request
         project_id = request.data.get('ProjectID')
         task_description = request.data.get('TaskDescription')
         task_status = request.data.get('TaskStatus')
         task_deadline = request.data.get('Taskdeadline')
         project_labor_id = request.data.get('Laborid')
         
-        # Log the extracted data
         logger.info(f"Extracted data: project_id={project_id}, task_description={task_description}, "
                    f"task_status={task_status}, task_deadline={task_deadline}, "
                    f"project_labor_id={project_labor_id}")
         
-        # Validate required fields
         if not all([project_id, task_status, task_deadline, project_labor_id]):
             missing_fields = []
             if not project_id: missing_fields.append('ProjectID')
@@ -71,7 +67,6 @@ def create_external_task(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the project and labor objects
         try:
             project = ExternalProjectDetails.objects.get(project_id=project_id)
             project_labor = ExternalProjectLabor.objects.get(project_labor_id=project_labor_id)
@@ -81,7 +76,6 @@ def create_external_task(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Insert directly using SQL - let the database generate the ID
         with connection.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO external_project_task_list
@@ -90,7 +84,6 @@ def create_external_task(request):
                 RETURNING task_id
             """, [project_id, task_description, task_status, task_deadline, project_labor_id])
             
-            # Get the generated task_id
             result = cursor.fetchone()
             if not result:
                 return Response(
@@ -100,7 +93,6 @@ def create_external_task(request):
             
             task_id = result[0]
             
-            # Return the created task
             task = ExternalProjectTaskList.objects.get(task_id=task_id)
             task_data = {
                 'task_id': task.task_id,
@@ -124,19 +116,16 @@ def create_internal_task(request):
     try:
         logger.info(f"Creating internal task with data: {request.data}")
         
-        # Extract data from request
         project_id = request.data.get('ProjectID')
         task_description = request.data.get('TaskDescription')
         task_status = request.data.get('TaskStatus')
         task_deadline = request.data.get('Taskdeadline')
         project_labor_id = request.data.get('Laborid')
         
-        # Log the extracted data
         logger.info(f"Extracted data: project_id={project_id}, task_description={task_description}, "
                    f"task_status={task_status}, task_deadline={task_deadline}, "
                    f"project_labor_id={project_labor_id}")
         
-        # Validate required fields
         if not all([project_id, task_status, task_deadline, project_labor_id]):
             missing_fields = []
             if not project_id: missing_fields.append('ProjectID')
@@ -149,7 +138,6 @@ def create_internal_task(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get the project and labor objects
         try:
             project = InternalProjectDetails.objects.get(intrnl_project_id=project_id)
             project_labor = InternalProjectLabor.objects.get(intrnl_project_labor_id=project_labor_id)
@@ -159,7 +147,6 @@ def create_internal_task(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Insert directly using SQL - let the database generate the ID
         with connection.cursor() as cursor:
             cursor.execute("""
                 INSERT INTO internal_project_task_list
@@ -168,7 +155,6 @@ def create_internal_task(request):
                 RETURNING intrnl_task_id
             """, [project_id, task_description, task_status, task_deadline, project_labor_id])
             
-            # Get the generated task_id
             result = cursor.fetchone()
             if not result:
                 return Response(
@@ -178,7 +164,6 @@ def create_internal_task(request):
             
             task_id = result[0]
             
-            # Return the created task
             task = InternalProjectTaskList.objects.get(intrnl_task_id=task_id)
             task_data = {
                 'intrnl_task_id': task.intrnl_task_id,

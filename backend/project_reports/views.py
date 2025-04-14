@@ -1,181 +1,300 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views import View
-from django.views.generic import ListView, DetailView
-from django.contrib import messages
-from datetime import date
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from rest_framework.decorators import api_view, action
 from django.db.models import Q
+from django.db import connection
 from .models import ReportMonitoring, ExternalProject, InternalProject
-from .forms import ReportFilterForm, ReportMonitoringForm
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.contrib.auth.decorators import login_required, permission_required
+from .serializers import ReportMonitoringSerializer
+from datetime import date
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-class ReportListView(ListView):
-    model = ReportMonitoring
-    template_name = 'project_reports/report_list.html'
-    context_object_name = 'reports'
-    paginate_by = 10
+@api_view(['GET'])
+def project_autocomplete(request):
+
+    search = request.query_params.get('search', '')
+    project_type = request.query_params.get('type', 'both')  
+    
+    try:
+        results = []
+        
+        with connection.cursor() as cursor:
+            if project_type in ['external', 'both'] and search:
+                cursor.execute("""
+                    SELECT 
+                        project_id AS id,
+                        'external' AS type,
+                        project_status AS status
+                    FROM 
+                        project_management.external_project_details
+                    WHERE 
+                        project_id ILIKE %s
+                    ORDER BY 
+                        project_id
+                    LIMIT 10
+                """, [f'%{search}%'])
+                
+                columns = [col[0] for col in cursor.description]
+                external_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                results.extend(external_results)
+            
+            if project_type in ['internal', 'both'] and search:
+                cursor.execute("""
+                    SELECT 
+                        intrnl_project_id AS id,
+                        'internal' AS type,
+                        intrnl_project_status AS status
+                    FROM 
+                        project_management.internal_project_details
+                    WHERE 
+                        intrnl_project_id ILIKE %s
+                    ORDER BY 
+                        intrnl_project_id
+                    LIMIT 10
+                """, [f'%{search}%'])
+                
+                columns = [col[0] for col in cursor.description]
+                internal_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                results.extend(internal_results)
+        
+        return Response(results)
+    except Exception as e:
+        logger.error(f"Error in project_autocomplete: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch project suggestions: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        
+class ReportMonitoringViewSet(viewsets.ModelViewSet):
+    queryset = ReportMonitoring.objects.all().order_by('-date_created')
+    serializer_class = ReportMonitoringSerializer
     
     def get_queryset(self):
-        queryset = super().get_queryset()
-        
-        # Get filter form
-        self.filter_form = ReportFilterForm(self.request.GET)
-        
-        # Apply filters if form is valid
-        if self.filter_form.is_valid():
-            data = self.filter_form.cleaned_data
+        try:
+            queryset = super().get_queryset()
             
-            # Search filter
-            search_query = data.get('search')
-            if search_query:
+            search = self.request.query_params.get('search', None)
+            report_type = self.request.query_params.get('report_type', None)
+            date_from = self.request.query_params.get('date_from', None)
+            date_to = self.request.query_params.get('date_to', None)
+            project_type = self.request.query_params.get('project_type', None)
+            
+            if search:
                 queryset = queryset.filter(
-                    Q(report_title__icontains=search_query) |
-                    Q(report_monitoring_id__icontains=search_query) |
-                    Q(description__icontains=search_query)
+                    Q(report_title__icontains=search) |
+                    Q(report_monitoring_id__icontains=search) |
+                    Q(description__icontains=search)
                 )
             
-            # Report type filter
-            report_type = data.get('report_type')
             if report_type:
                 queryset = queryset.filter(report_type=report_type)
-            
-            # Date range filters
-            date_from = data.get('date_from')
+                
             if date_from:
                 queryset = queryset.filter(date_created__gte=date_from)
                 
-            date_to = data.get('date_to')
             if date_to:
                 queryset = queryset.filter(date_created__lte=date_to)
             
-            # Project type filter
-            project_type = data.get('project_type')
             if project_type == 'external':
                 queryset = queryset.filter(project_id__isnull=False)
             elif project_type == 'internal':
                 queryset = queryset.filter(intrnl_project_id__isnull=False)
-        
-        return queryset.order_by('-date_created')
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['filter_form'] = self.filter_form
-        return context
-
-class ReportDetailView(DetailView):
-    model = ReportMonitoring
-    template_name = 'project_reports/report_detail.html'
-    context_object_name = 'report'
-    
-    def get_object(self):
-        return get_object_or_404(ReportMonitoring, report_monitoring_id=self.kwargs['report_id'])
-    
-@login_required
-@permission_required('project_reports.add_reportmonitoring', raise_exception=True)
-def create_report_view(request):
-    if request.method == 'POST':
-        form = ReportMonitoringForm(request.POST)
-        if form.is_valid():
-            try:
-                # Get the project IDs from the form
-                project_id = form.cleaned_data.get('project_id')
-                if project_id == '':
-                    project_id = None
-                    
-                intrnl_project_id = form.cleaned_data.get('intrnl_project_id')
-                if intrnl_project_id == '':
-                    intrnl_project_id = None
                 
-                # Use the custom method to create the report
-                report_id = ReportMonitoring.create_report(
-                    project_id=project_id,
-                    intrnl_project_id=intrnl_project_id,
-                    report_type=form.cleaned_data['report_type'],
-                    report_title=form.cleaned_data['report_title'],
-                    received_from=form.cleaned_data['received_from'],
-                    date_created=form.cleaned_data['date_created'],
-                    assigned_to=form.cleaned_data['assigned_to'],
-                    description=form.cleaned_data.get('description', '')
+            return queryset
+        except Exception as e:
+            logger.error(f"Error in get_queryset: {str(e)}")
+            return ReportMonitoring.objects.none()
+    
+    def list(self, request, *args, **kwargs):
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(queryset)
+            
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error in list method: {str(e)}")
+            return Response(
+                {"error": f"An error occurred while fetching reports: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            project_id = request.data.get('project_id')
+            intrnl_project_id = request.data.get('intrnl_project_id')
+            report_type = request.data.get('report_type')
+            report_title = request.data.get('report_title')
+            received_from = request.data.get('received_from')
+            date_created = request.data.get('date_created')
+            assigned_to = request.data.get('assigned_to')
+            description = request.data.get('description', '')
+            
+            report_id = ReportMonitoring.create_report(
+                project_id=project_id,
+                intrnl_project_id=intrnl_project_id,
+                report_type=report_type,
+                report_title=report_title,
+                received_from=received_from,
+                date_created=date_created,
+                assigned_to=assigned_to,
+                description=description
+            )
+            
+            if report_id:
+                report = ReportMonitoring.objects.get(report_monitoring_id=report_id)
+                serializer = self.get_serializer(report)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(
+                    {"error": "Failed to create report. No report ID was returned."},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-                
-                if report_id:
-                    messages.success(request, f'Report "{form.cleaned_data["report_title"]}" created successfully with ID {report_id}.')
-                    return redirect('project_reports:report_list')
-                else:
-                    messages.error(request, 'Failed to create report. No report ID was returned.')
-            except Exception as e:
-                messages.error(request, f'Error creating report: {str(e)}')
-        else:
-            messages.error(request, 'Please correct the errors below.')
-    else:
-        form = ReportMonitoringForm()
+        except Exception as e:
+            logger.error(f"Error in create method: {str(e)}")
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
     
-    return render(request, 'project_reports/report_form.html', {
-        'form': form,
-    })
+    @action(detail=False, methods=['get'])
+    def report_types(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        unnest(enum_range(NULL::report_type))::text as report_type
+                    ORDER BY 
+                        report_type
+                """)
+                report_types = [row[0] for row in cursor.fetchall()]
+            
+            return Response(report_types)
+        except Exception as e:
+            logger.error(f"Error fetching report types: {str(e)}")
+            fallback_types = [
+                'Sales Order',
+                'Resource Availability',
+                'Bill of Material',
+                'Information',
+                'Progress Report',
+                'Project Details',
+                'Inventory Movement',
+            ]
+            return Response(fallback_types)
+    
+    @action(detail=False, methods=['get'])
+    def departments(self, request):
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        unnest(enum_range(NULL::ext_modules))::text as module
+                    ORDER BY 
+                        module
+                """)
+                modules = [row[0] for row in cursor.fetchall()]
+            
+            return Response(modules)
+        except Exception as e:
+            logger.error(f"Error fetching departments: {str(e)}")
+            fallback_departments = [
+                'Accounting',
+                'Admin',
+                'Distribution',
+                'Finance',
+                'Human Resources',
+                'Inventory',
+                'Management',
+                'MRP',
+                'Operations',
+                'Production',
+                'Project Management',
+                'Purchasing',
+                'Sales',
+                'Services',
+                'Solution Customizing',
+                'Department - IT Team',
+                'Department - Project Management',
+            ]
+            return Response(fallback_departments)
 
-@login_required
-@login_required
-def update_report_view(request, report_id):
-    report = get_object_or_404(ReportMonitoring, report_monitoring_id=report_id)
-    
-    # Check permissions
-    if not request.user.has_perm('project_reports.change_reportmonitoring'):
-        # Check if user is in the assigned department
-        user_department = getattr(request.user, 'department', None)
-        if not (user_department and report.assigned_to == user_department):
-            return redirect('project_reports:report_detail', report_id=report_id)
-        
-    report = get_object_or_404(ReportMonitoring, report_monitoring_id=report_id)
-    
-    if request.method == 'POST':
-        form = ReportMonitoringForm(request.POST, instance=report)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Report "{form.cleaned_data["report_title"]}" updated successfully.')
-            return redirect('project_reports:report_detail', report_id=report_id)
-        else:
-            messages.error(request, 'Please correct the errors below.')
-    else:
-        form = ReportMonitoringForm(instance=report)
-    
-    return render(request, 'project_reports/report_form.html', {
-        'form': form,
-        'report': report,
-    })
 
-def delete_report_view(request, report_id):
-    report = get_object_or_404(ReportMonitoring, report_monitoring_id=report_id)
+@api_view(['GET'])
+def external_projects(request):
+    search = request.query_params.get('search', '')
     
-    if request.method == 'POST':
-        report.delete()
-        messages.success(request, f'Report "{report.report_title}" deleted successfully.')
-        return redirect('project_reports:report_list')
-    
-    return render(request, 'project_reports/report_confirm_delete.html', {
-        'report': report,
-    })
+    try:
+        with connection.cursor() as cursor:
+            query = """
+                SELECT 
+                    project_id, 
+                    ext_project_request_id, 
+                    project_status
+                FROM 
+                    project_management.external_project_details
+            """
+            
+            params = []
+            if search:
+                query += " WHERE project_id ILIKE %s"
+                params.append(f'%{search}%')
+            
+            query += " ORDER BY project_id LIMIT 100"
+            
+            cursor.execute(query, params)
+            
+            columns = [col[0] for col in cursor.description]
+            projects = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        return Response(projects)
+    except Exception as e:
+        logger.error(f"Error fetching external projects: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch external projects: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
-class ReportAccessMixin:
-    """
-    Mixin to check if user has access to a specific report.
-    This allows for more granular access control beyond Django's default permissions.
-    """
-    def dispatch(self, request, *args, **kwargs):
-        # First check if user is logged in and has basic permission
-        if not request.user.is_authenticated:
-            return self.handle_no_permission()
+
+@api_view(['GET'])
+def internal_projects(request):
+    search = request.query_params.get('search', '')
+    
+    try:
+        with connection.cursor() as cursor:
+            query = """
+                SELECT 
+                    intrnl_project_id, 
+                    project_request_id, 
+                    intrnl_project_status
+                FROM 
+                    project_management.internal_project_details
+            """
+            
+            params = []
+            if search:
+                query += " WHERE intrnl_project_id ILIKE %s"
+                params.append(f'%{search}%')
+            
+            query += " ORDER BY intrnl_project_id LIMIT 100"
+            
+            cursor.execute(query, params)
+            
+            columns = [col[0] for col in cursor.description]
+            projects = [dict(zip(columns, row)) for row in cursor.fetchall()]
         
-        # Get the report
-        report = self.get_object()
+        return Response(projects)
+    except Exception as e:
+        logger.error(f"Error fetching internal projects: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch internal projects: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
         
-        # Check if user is in the assigned department
-        user_department = getattr(request.user, 'department', None)
-        if user_department and report.assigned_to != user_department:
-            # If user is not in management or admin, restrict access
-            if not (request.user.is_superuser or 
-                    request.user.groups.filter(name='Management').exists()):
-                return self.handle_no_permission()
-        
-        return super().dispatch(request, *args, **kwargs)

@@ -4,7 +4,6 @@ from .models import ReportMonitoring, ExternalProject, InternalProject
 
 
 class ReportMonitoringForm(forms.ModelForm):
-    # Define choices for report types
     REPORT_TYPE_CHOICES = [
         ('Sales Order', 'Sales Order'),
         ('Resource Availability', 'Resource Availability'),
@@ -15,7 +14,6 @@ class ReportMonitoringForm(forms.ModelForm):
         ('Inventory Movement', 'Inventory Movement'),
     ]
     
-    # Define choices for modules
     MODULE_CHOICES = [
         ('Accounting', 'Accounting'),
         ('Admin', 'Admin'),
@@ -36,7 +34,6 @@ class ReportMonitoringForm(forms.ModelForm):
         ('Department - Project Management', 'Department - Project Management'),
     ]
     
-    # Get external project choices
     def get_external_project_choices():
         choices = [('', '---------')]
         projects = ExternalProject.objects.all().order_by('project_id')
@@ -44,7 +41,6 @@ class ReportMonitoringForm(forms.ModelForm):
             choices.append((project.project_id, f"{project.project_id}"))
         return choices
     
-    # Get internal project choices
     def get_internal_project_choices():
         choices = [('', '---------')]
         projects = InternalProject.objects.all().order_by('intrnl_project_id')
@@ -114,7 +110,6 @@ class ReportMonitoringForm(forms.ModelForm):
         project_id = cleaned_data.get('project_id')
         intrnl_project_id = cleaned_data.get('intrnl_project_id')
         
-        # If both are empty strings, treat them as None
         if project_id == '':
             project_id = None
             cleaned_data['project_id'] = None
@@ -123,11 +118,9 @@ class ReportMonitoringForm(forms.ModelForm):
             intrnl_project_id = None
             cleaned_data['intrnl_project_id'] = None
         
-        # Check if at least one project ID is provided
         if not project_id and not intrnl_project_id:
             self.add_error(None, "Either Project ID or Internal Project ID must be provided.")
         
-        # Ensure both aren't provided at the same time
         if project_id and intrnl_project_id:
             self.add_error(None, "Please provide either Project ID or Internal Project ID, not both.")
         
@@ -179,11 +172,9 @@ class ReportFilterForm(forms.Form):
     def clean_report_title(self):
         title = self.cleaned_data.get('report_title')
         if title:
-            # Check if title is too short
             if len(title) < 5:
                 raise forms.ValidationError("Report title must be at least 5 characters long.")
             
-            # Check if title is too generic
             generic_titles = ['report', 'test', 'new report', 'project report']
             if title.lower() in generic_titles:
                 raise forms.ValidationError("Please provide a more descriptive title.")
@@ -193,7 +184,6 @@ class ReportFilterForm(forms.Form):
     def clean_date_created(self):
         date_created = self.cleaned_data.get('date_created')
         if date_created:
-            # Check if date is in the future
             if date_created > date.today():
                 raise forms.ValidationError("Date created cannot be in the future.")
         

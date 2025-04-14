@@ -1,12 +1,12 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from . import views
 
-app_name = 'project_reports'
+router = DefaultRouter()
+router.register(r'reports', views.ReportMonitoringViewSet, basename='report')
 
 urlpatterns = [
-    path('', views.ReportListView.as_view(), name='report_list'),
-    path('create/', views.create_report_view, name='report_create'),
-    path('<str:report_id>/', views.ReportDetailView.as_view(), name='report_detail'),
-    path('<str:report_id>/update/', views.update_report_view, name='report_update'),
-    path('<str:report_id>/delete/', views.delete_report_view, name='report_delete'),
+    path('api/', include(router.urls)),
+    path('api/external-projects/', views.external_projects, name='external_projects'),
+    path('api/internal-projects/', views.internal_projects, name='internal_projects'),
 ]

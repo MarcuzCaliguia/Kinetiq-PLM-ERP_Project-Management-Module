@@ -9,7 +9,6 @@ class Employees(models.Model):
         managed = False
         db_table = 'employees'
 
-# Add these placeholder classes for the external references
 class ExternalProjectRequest(models.Model):
     ext_project_request_id = models.CharField(primary_key=True, max_length=255)
     
@@ -24,11 +23,10 @@ class InternalProjectRequest(models.Model):
         managed = False
         db_table = 'internal_project_request'
 
-# Define project details first
 class ExternalProjectDetails(models.Model):
     project_id = models.CharField(primary_key=True, max_length=255)
     ext_project_request = models.ForeignKey('ExternalProjectRequest', models.DO_NOTHING, blank=True, null=True)
-    project_status = models.TextField()  # This field type is a guess.
+    project_status = models.TextField() 
 
     class Meta:
         managed = False
@@ -44,7 +42,6 @@ class InternalProjectDetails(models.Model):
         managed = False
         db_table = 'internal_project_details'
 
-# Then define project labor
 class ExternalProjectLabor(models.Model):
     project_labor_id = models.CharField(primary_key=True, max_length=255)
     project = models.ForeignKey(ExternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
@@ -65,7 +62,6 @@ class InternalProjectLabor(models.Model):
         managed = False
         db_table = 'internal_project_labor'
 
-# Finally define task lists
 class ExternalProjectTaskList(models.Model):
     task_id = models.CharField(primary_key=True, max_length=255)
     project = models.ForeignKey(ExternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
@@ -82,7 +78,7 @@ class InternalProjectTaskList(models.Model):
     intrnl_task_id = models.CharField(primary_key=True, max_length=255)
     intrnl_project = models.ForeignKey(InternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
     intrnl_task_description = models.TextField(blank=True, null=True)
-    intrnl_task_status = models.TextField()  # This field type is a guess.
+    intrnl_task_status = models.TextField() 
     intrnl_task_deadline = models.DateField()
     intrnl_project_labor = models.ForeignKey(InternalProjectLabor, models.DO_NOTHING, blank=True, null=True)
 
