@@ -3,9 +3,13 @@ Create virtual environment in root directory:
 python -m venv venv
 Activate venv in root directory:
 venv\scripts\activate
-
+Once activated, run this (venv) :
+pip install -r requirements.txt
 then:
 cd backend
+code .
+
+run the terminal on backend dir:
 python manage.py runserver
 
 open terminal:
