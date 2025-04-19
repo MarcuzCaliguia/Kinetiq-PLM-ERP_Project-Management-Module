@@ -144,7 +144,6 @@ function App() {
       "Production Scheduling": "ProductionScheduling",
     },
     "Project Management": {
-      "DashBoard": "DashBoard",
       "Project List": "Project List",
       "Project Planning": "ProjectPlanning",
       "Tasks": "TaskMonitoring",

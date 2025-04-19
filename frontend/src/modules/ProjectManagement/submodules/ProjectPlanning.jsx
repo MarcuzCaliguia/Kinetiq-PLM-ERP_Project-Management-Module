@@ -298,7 +298,7 @@ const handleFirstSubmitint = async (e) => {
     console.error("Error creating internal project:", error);
     setMessage({ text: "Failed to create internal project. Please try again.", type: "error" });
   }
-};f
+};
 
   const handleSecondSubmitint = async (e) => {
     e.preventDefault();

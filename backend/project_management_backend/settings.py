@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     'project_reports',
     'project_warranties',
     'project_planning',
+    'project_list',
 ]
 
 REST_FRAMEWORK = {
