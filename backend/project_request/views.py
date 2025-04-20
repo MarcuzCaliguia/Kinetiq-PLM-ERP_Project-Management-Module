@@ -42,10 +42,10 @@ def project_requests(request):
     
     elif request.method == 'POST':
         try:
-            # Parse JSON data from request body
+            
             data = json.loads(request.body)
             
-            # Generate a new ID (you might want to use your custom function here)
+            
             with connection.cursor() as cursor:
                 cursor.execute("""
                     SELECT 'PROJ-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || 
@@ -57,7 +57,7 @@ def project_requests(request):
                 """)
                 new_id = cursor.fetchone()[0]
             
-            # Insert the new project request
+            
             with connection.cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO project_management.internal_project_request (

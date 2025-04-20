@@ -35,17 +35,17 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def detailed(self, request):
         try:
-            # Optimize query with prefetch_related to avoid N+1 queries
+            
             queryset = ExternalProjectDetails.objects.select_related(
                 'ext_project_request_id'
             ).prefetch_related(
                 'externalprojectwarranty_set'
-            ).order_by('project_id')[:100]  # Limit to 100 records for performance
+            ).order_by('project_id')[:100]  
             
             serializer = ExternalProjectDetailedSerializer(queryset, many=True)
             return Response(serializer.data)
         except Exception as e:
-            # Log the error and return a friendly message
+            
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error in detailed view: {str(e)}")
@@ -104,15 +104,15 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def detailed(self, request):
         try:
-            # Optimize query with select_related to avoid N+1 queries
+            
             queryset = InternalProjectDetails.objects.select_related(
                 'project_request_id'
-            ).order_by('intrnl_project_id')[:100]  # Limit to 100 records for performance
+            ).order_by('intrnl_project_id')[:100]  
             
             serializer = InternalProjectDetailedSerializer(queryset, many=True)
             return Response(serializer.data)
         except Exception as e:
-            # Log the error and return a friendly message
+            
             import logging
             logger = logging.getLogger(__name__)
             logger.error(f"Error in internal detailed view: {str(e)}")

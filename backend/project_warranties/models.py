@@ -14,7 +14,7 @@ class ExternalProjectWarranty(models.Model):
 class ExternalProjectDetails(models.Model):
     project_id = models.CharField(primary_key=True, max_length=255)
     ext_project_request = models.ForeignKey(
-        to='ExternalProjectRequest',  # Reference the local model
+        to='ExternalProjectRequest',  
         on_delete=models.DO_NOTHING,
         db_column='ext_project_request_id',  
         blank=True,

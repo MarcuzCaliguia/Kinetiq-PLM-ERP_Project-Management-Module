@@ -233,7 +233,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
     def statistics(self, request):
         try:
             with connection.cursor() as cursor:
-                # Get report counts by type
+                
                 cursor.execute("""
                     SELECT 
                         report_type, 
@@ -249,7 +249,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                 columns = [col[0] for col in cursor.description]
                 by_type = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
-                # Get report counts by month
+                
                 cursor.execute("""
                     SELECT 
                         TO_CHAR(date_created, 'YYYY-MM') as month, 
@@ -267,7 +267,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                 columns = [col[0] for col in cursor.description]
                 by_month = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 
-                # Get total counts
+                
                 cursor.execute("""
                     SELECT 
                         COUNT(*) as total,
@@ -301,7 +301,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
             data = {}
             
             if project_id:
-                # Get external project details
+                
                 with connection.cursor() as cursor:
                     cursor.execute("""
                         SELECT 
@@ -327,7 +327,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                         project_data = dict(zip(columns, result))
                         data['project'] = project_data
                         
-                        # Get equipment for this project
+                        
                         cursor.execute("""
                             SELECT 
                                 e.equipment_id,
@@ -349,7 +349,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                         equipment_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
                         data['equipment'] = equipment_results
                         
-                        # Get assigned workers for this project
+                        
                         cursor.execute("""
                             SELECT 
                                 e.employee_id,
@@ -373,7 +373,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                         data['workers'] = workers_results
                 
             elif internal_project_id:
-                # Get internal project details
+                
                 with connection.cursor() as cursor:
                     cursor.execute("""
                         SELECT 
@@ -394,7 +394,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                         project_data = dict(zip(columns, result))
                         data['project'] = project_data
                         
-                        # Get equipment for this internal project
+                        
                         cursor.execute("""
                             SELECT 
                                 e.equipment_id,
@@ -416,7 +416,7 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                         equipment_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
                         data['equipment'] = equipment_results
                         
-                        # Get assigned workers for this internal project
+                        
                         cursor.execute("""
                             SELECT 
                                 e.employee_id,

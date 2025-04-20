@@ -20,7 +20,7 @@ class InternalProjectLabor(models.Model):
         
 class ExternalProjectDetails(models.Model):
     project_id = models.CharField(primary_key=True, max_length=255)
-    project_status = models.TextField()  # This field type is a guess.
+    project_status = models.TextField()  
 
     class Meta:
         managed = False
@@ -29,7 +29,7 @@ class ExternalProjectDetails(models.Model):
 class InternalProjectDetails(models.Model):
     intrnl_project_id = models.CharField(primary_key=True, max_length=255)
     project_request = models.ForeignKey('InternalProjectRequest', models.DO_NOTHING, blank=True, null=True)
-    intrnl_project_status = models.TextField()  # This field type is a guess.
+    intrnl_project_status = models.TextField()  
     approval_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
@@ -39,7 +39,7 @@ class InternalProjectDetails(models.Model):
 class ExternalProjectTracking(models.Model):
     project_tracking_id = models.CharField(primary_key=True, max_length=255)
     project = models.ForeignKey(ExternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
-    project_milestone = models.TextField()  # This field type is a guess.
+    project_milestone = models.TextField()  
     start_date = models.DateField()
     estimated_end_date = models.DateField()
     project_warranty = models.ForeignKey('ExternalProjectWarranty', models.DO_NOTHING, blank=True, null=True)
@@ -64,7 +64,7 @@ class ExternalProjectTaskList(models.Model):
     task_id = models.CharField(primary_key=True, max_length=255)
     project = models.ForeignKey(ExternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
     task_description = models.TextField(blank=True, null=True)
-    task_status = models.TextField()  # This field type is a guess.
+    task_status = models.TextField()  
     task_deadline = models.DateField()
     project_labor = models.ForeignKey(ExternalProjectLabor, models.DO_NOTHING, blank=True, null=True)
 
@@ -76,7 +76,7 @@ class InternalProjectTaskList(models.Model):
     intrnl_task_id = models.CharField(primary_key=True, max_length=255)
     intrnl_project = models.ForeignKey(InternalProjectDetails, models.DO_NOTHING, blank=True, null=True)
     intrnl_task_description = models.TextField(blank=True, null=True)
-    intrnl_task_status = models.TextField()  # This field type is a guess.
+    intrnl_task_status = models.TextField()  
     intrnl_task_deadline = models.DateField()
     intrnl_project_labor = models.ForeignKey(InternalProjectLabor, models.DO_NOTHING, blank=True, null=True)
 

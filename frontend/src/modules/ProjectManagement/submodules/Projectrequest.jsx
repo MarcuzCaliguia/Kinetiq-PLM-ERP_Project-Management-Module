@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "../styles/Projectrequest.css";
 
-// Set axios base URL
-axios.defaults.baseURL = 'http://localhost:8000'; // Adjust to match your Django server
+
+axios.defaults.baseURL = 'http://localhost:8000';
 
 const BodyContent = () => {
-  // Form fields
+  
   const [newInternalprojectname, setNewInternalprojectname] = useState("");
   const [newInternalrequestdate, setNewInternalrequestdate] = useState("");
   const [newInternalstartingdate, setNewInternalstartingdate] = useState("");
@@ -16,7 +16,7 @@ const BodyContent = () => {
   const [newInternalbudgetdescription, setNewInternalbudgetdescription] = useState("");
   const [newInternalprojectdescription, setNewInternalprojectdescription] = useState("");
   
-  // UI states
+  
   const [showReportList, setShowReportList] = useState(false);
   const [currentForm, setCurrentForm] = useState(1);
   const [reportData, setReportData] = useState([]);
@@ -24,18 +24,18 @@ const BodyContent = () => {
   const [loading, setLoading]= useState (false);
   const [submitLoading, setSubmitLoading] = useState(false);
   
-  // Autocomplete suggestions
+  
   const [employeeSuggestions, setEmployeeSuggestions] = useState([]);
   const [departmentSuggestions, setDepartmentSuggestions] = useState([]);
   const [showEmployeeSuggestions, setShowEmployeeSuggestions] = useState(false);
   const [showDepartmentSuggestions, setShowDepartmentSuggestions] = useState(false);
 
-  // Load project requests on component mount
+  
   useEffect(() => {
     fetchProjectRequests();
   }, []);
 
-  // Fetch all project requests from the backend
+  
   const fetchProjectRequests = async () => {
     setLoading(true);
     try {
@@ -49,7 +49,7 @@ const BodyContent = () => {
     }
   };
 
-  // Search for employees as user types
+  
   const searchEmployees = async (query) => {
     if (query.length < 2) {
       setEmployeeSuggestions([]);
@@ -67,7 +67,7 @@ const BodyContent = () => {
     }
   };
 
-  // Search for departments as user types
+  
   const searchDepartments = async (query) => {
     if (query.length < 2) {
       setDepartmentSuggestions([]);
@@ -85,33 +85,33 @@ const BodyContent = () => {
     }
   };
 
-  // Handle employee input change
+  
   const handleEmployeeInputChange = (e) => {
     const value = e.target.value;
     setNewInternalemployeeid(value);
     searchEmployees(value);
   };
 
-  // Handle department input change
+  
   const handleDepartmentInputChange = (e) => {
     const value = e.target.value;
     setNewInternaldepartmentid(value);
     searchDepartments(value);
   };
 
-  // Select an employee from suggestions
+  
   const selectEmployee = (employee) => {
     setNewInternalemployeeid(employee.employee_id);
     setShowEmployeeSuggestions(false);
   };
 
-  // Select a department from suggestions
+  
   const selectDepartment = (department) => {
     setNewInternaldepartmentid(department.dept_id);
     setShowDepartmentSuggestions(false);
   };
 
-  // Submit the form
+  
   const handleFirstSubmitprojrequest = async (e) => {
     e.preventDefault();
     setSubmitLoading(true);
@@ -133,10 +133,10 @@ const BodyContent = () => {
       const response = await axios.post('/api/project_request/project-requests/', projectRequestData);
       console.log("Project request created:", response.data);
       
-      // Refresh the project requests list
+      
       await fetchProjectRequests();
       
-      // Reset form and show the list
+      
       setShowReportList(true);
       setCurrentForm(null);
       resetForm();
@@ -150,7 +150,7 @@ const BodyContent = () => {
     }
   };
 
-  // Reset the form fields
+  
   const resetForm = () => {
     setNewInternalprojectname("");
     setNewInternalrequestdate("");
@@ -162,13 +162,13 @@ const BodyContent = () => {
     setNewInternalprojectdescription("");
   };
 
-  // Go back to the form
+  
   const handleBackClick = () => {
     setShowReportList(false);
     setCurrentForm(1);
   };
 
-  // Remove selected project requests
+  
   const handleRemoveReports = async () => {
     if (selectedReports.length === 0) {
       alert("Please select at least one project request to remove.");
@@ -181,14 +181,14 @@ const BodyContent = () => {
     
     setLoading(true);
     try {
-      // Delete selected reports one by one
+      
       for (const index of selectedReports) {
         const projectId = reportData[index].project_request_id;
         console.log(`Deleting project request with ID: ${projectId}`);
         await axios.delete(`/api/project_request/project-requests/${projectId}/`);
       }
       
-      // Refresh the list
+      
       await fetchProjectRequests();
       setSelectedReports([]);
       alert("Selected project requests have been removed.");
@@ -200,7 +200,7 @@ const BodyContent = () => {
     }
   };
 
-  // Handle checkbox selection
+  
   const handleCheckboxChange = (index) => {
     if (selectedReports.includes(index)) {
       setSelectedReports(selectedReports.filter((i) => i !== index));
@@ -209,7 +209,7 @@ const BodyContent = () => {
     }
   };
 
-  // Format date for display
+  
   const formatDate = (dateString) => {
     if (!dateString) return "";
     const date = new Date(dateString);

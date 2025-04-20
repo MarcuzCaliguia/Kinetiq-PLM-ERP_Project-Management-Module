@@ -1,4 +1,4 @@
-# views.py
+
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
@@ -23,7 +23,7 @@ from django.db.models import Q
 
 class OverdueTasksView(APIView):
     def get(self, request):
-        # Get overdue tasks from both external and internal project task lists
+        
         today = date.today()
         
         external_overdue = ExternalProjectTaskList.objects.filter(task_deadline__lt=today)
@@ -32,14 +32,14 @@ class OverdueTasksView(APIView):
         external_serializer = ExternalProjectTaskListSerializer(external_overdue, many=True)
         internal_serializer = InternalProjectTaskListSerializer(internal_overdue, many=True)
         
-        # Combine the results
+        
         combined_data = external_serializer.data + internal_serializer.data
         
         return Response(combined_data)
 
 class TodayTasksView(APIView):
     def get(self, request):
-        # Get tasks due today from both external and internal project task lists
+        
         today = date.today()
         
         external_today = ExternalProjectTaskList.objects.filter(task_deadline=today)
@@ -48,7 +48,7 @@ class TodayTasksView(APIView):
         external_serializer = ExternalProjectTaskListSerializer(external_today, many=True)
         internal_serializer = InternalProjectTaskListSerializer(internal_today, many=True)
         
-        # Combine the results
+        
         combined_data = external_serializer.data + internal_serializer.data
         
         return Response(combined_data)
@@ -69,7 +69,7 @@ class SearchExternalProjectView(APIView):
     def get(self, request):
         query = request.query_params.get('query', '')
         if not query:
-            # Return some default projects if no query is provided
+            
             projects = ExternalProjectDetails.objects.all()[:10]
         else:
             projects = ExternalProjectDetails.objects.filter(
@@ -83,7 +83,7 @@ class SearchInternalProjectView(APIView):
     def get(self, request):
         query = request.query_params.get('query', '')
         if not query:
-            # Return some default projects if no query is provided
+            
             projects = InternalProjectDetails.objects.all()[:10]
         else:
             projects = InternalProjectDetails.objects.filter(
@@ -97,7 +97,7 @@ class SearchWarrantyView(APIView):
     def get(self, request):
         query = request.query_params.get('query', '')
         if not query:
-            # Return some default warranties if no query is provided
+            
             warranties = ExternalProjectWarranty.objects.all()[:10]
         else:
             warranties = ExternalProjectWarranty.objects.filter(
@@ -111,7 +111,7 @@ class SearchProjectRequestView(APIView):
     def get(self, request):
         query = request.query_params.get('query', '')
         if not query:
-            # Return some default project requests if no query is provided
+            
             requests = InternalProjectRequest.objects.all()[:10]
         else:
             requests = InternalProjectRequest.objects.filter(
@@ -137,20 +137,20 @@ class CreateInternalProjectView(APIView):
             return Response(result, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# views.py - updated ProjectSummaryView
+
 class ProjectSummaryView(APIView):
     def get(self, request):
         try:
-            # Get all external projects
+            
             external_projects = ExternalProjectTracking.objects.all()
             
-            # Get all internal projects
+            
             internal_projects = InternalProjectTracking.objects.all()
             
-            # Prepare the response data
+            
             combined_data = []
             
-            # Add external projects
+            
             for project in external_projects:
                 combined_data.append({
                     'id': project.project_tracking_id,
@@ -161,7 +161,7 @@ class ProjectSummaryView(APIView):
                     'issue': project.project_issue if project.project_issue else ""
                 })
             
-            # Add internal projects
+            
             for project in internal_projects:
                 combined_data.append({
                     'id': project.intrnl_project_tracking_id,

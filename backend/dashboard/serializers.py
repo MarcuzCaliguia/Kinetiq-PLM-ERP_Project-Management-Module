@@ -1,4 +1,4 @@
-# serializers.py
+
 from rest_framework import serializers
 from .models import (
     ExternalProjectDetails, InternalProjectDetails,
@@ -195,16 +195,16 @@ class CreateExternalProjectSerializer(serializers.Serializer):
         project_id = validated_data.get('project_id')
         warranty_id = validated_data.get('project_warranty_id')
         
-        # Check if project exists, if not create it
+        
         project, created = ExternalProjectDetails.objects.get_or_create(
             project_id=project_id,
             defaults={'project_status': 'Active'}
         )
         
-        # Create project tracking
+        
         tracking_id = str(uuid.uuid4())[:8]
         
-        # Get warranty if provided
+        
         warranty = None
         if warranty_id:
             try:
@@ -238,7 +238,7 @@ class CreateInternalProjectSerializer(serializers.Serializer):
         project_id = validated_data.get('project_id')
         request_id = validated_data.get('project_request_id')
         
-        # Get project request if provided
+        
         project_request = None
         if request_id:
             try:
@@ -246,7 +246,7 @@ class CreateInternalProjectSerializer(serializers.Serializer):
             except InternalProjectRequest.DoesNotExist:
                 pass
         
-        # Check if project exists, if not create it
+        
         project, created = InternalProjectDetails.objects.get_or_create(
             intrnl_project_id=project_id,
             defaults={
@@ -255,7 +255,7 @@ class CreateInternalProjectSerializer(serializers.Serializer):
             }
         )
         
-        # Create project tracking
+        
         tracking_id = str(uuid.uuid4())[:8]
         InternalProjectTracking.objects.create(
             intrnl_project_tracking_id=tracking_id,
