@@ -420,3 +420,134 @@ select:disabled {
   border-radius: 4px;
   margin: 10px 0;
 }
+
+/* Generate Reports Button */
+.generatereport {
+  position: relative;
+  width: 160px;
+  height: 35px;
+  background: #4CAF50;
+  color: white;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.generatereport:hover {
+  background-color: #45a049;
+}
+
+.generatereport:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Back Button */
+.back-button {
+  padding: 8px 15px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 15px;
+  display: inline-block;
+}
+
+.back-button:hover {
+  background-color: #e0e0e0;
+}
+
+/* Report Actions Container */
+.report-actions {
+  display: flex;
+  margin-bottom: 15px;
+}
+
+/* Generate Reports Wrapper */
+.generate-reports-wrapper {
+  padding: 10px;
+}
+
+/* Selected Row Styling */
+.replist .selected-row {
+  background-color: #e3f2fd;
+}
+
+.replist .selected-row:hover {
+  background-color: #bbdefb;
+}
+
+/* Selection Info */
+.selection-info {
+  text-align: right;
+  font-size: 14px;
+  color: #666;
+  margin-top: 10px;
+}
+
+/* View Reports Container */
+.view-reports-container {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.view-reports-btn {
+  padding: 10px 20px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.view-reports-btn:hover {
+  background-color: #0b7dda;
+}
+
+.view-reports-btn:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Add to Reports.css */
+.projectforms {
+  background-color: #9c27b0;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-left: 10px;
+}
+
+.projectforms:hover {
+  background-color: #7b1fa2;
+}
+
+.projectforms:disabled {
+  background-color: #e1bee7;
+  cursor: not-allowed;
+}
+
+.project-forms-wrapper {
+  width: 100%;
+}
+
+.project-forms-wrapper .back-button {
+  margin-bottom: 20px;
+  background-color: transparent;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.project-forms-wrapper .back-button:hover {
+  text-decoration: underline;
+}

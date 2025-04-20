@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from project_reports import api
+from project_reports import views as report_views  
 from project_warranties import views as warranty_views
 
 router = DefaultRouter()
@@ -28,13 +29,16 @@ router.register(r'internal-projects', api.InternalProjectViewSet)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('project-tasks/', include('project_tasks.urls')),
-    path('reports/', include('project_reports.urls')),
+    path('api/reports/', include('project_reports.urls')),
     path('api/', include(router.urls)),
     path('api/warranties/', include('project_warranties.urls')),
     path('api/project-autocomplete/', warranty_views.project_autocomplete, name='project_autocomplete'),
     path('api/project-planning/', include('project_planning.urls')),    
     path('api/project-management/', include('project_list.urls')),
-     path('api/', include('dashboard.urls')),  #
-
-
+    
+    path('api/equipment/', report_views.equipment_list, name='equipment-list'),
+    path('api/employees/', report_views.employees_list, name='employees-list'),
+    path('api/positions/', report_views.positions_list, name='positions-list'),
+    
+    path('api/', include('dashboard.urls')),
 ]

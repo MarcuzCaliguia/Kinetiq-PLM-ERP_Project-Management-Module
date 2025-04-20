@@ -110,7 +110,7 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', '127.0.0.1'),
         'PORT': os.getenv('DB_PORT', '15432'),
                  'OPTIONS': {
-             'options': '-c search_path=project_management,human_resources,management,mrp,public'
+             'options': '-c search_path=project_management,human_resources,management,mrp,production,public'
          },
     }
 }

@@ -61,3 +61,34 @@ class InternalProject(models.Model):
     
     def __str__(self):
         return f"{self.intrnl_project_id} ({self.intrnl_project_status})"
+    
+class Equipment(models.Model):
+    equipment_id = models.CharField(primary_key=True, max_length=255)
+    equipment_name = models.CharField(max_length=255)
+    description = models.TextField()
+    availability_status = models.CharField(max_length=50)
+    last_maintenance_date = models.DateField()
+    equipment_cost = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        managed = False
+        db_table = 'equipment'
+        
+class Employees(models.Model):
+    employee_id = models.CharField(primary_key=True, max_length=255)
+    position = models.ForeignKey('Positions', models.DO_NOTHING, blank=True, null=True)
+    first_name = models.CharField(max_length=50, blank=True, null=True)
+    last_name = models.CharField(max_length=50, blank=True, null=True)
+
+
+    class Meta:
+        managed = False
+        db_table = 'employees'
+        
+class Positions(models.Model):
+    position_id = models.CharField(primary_key=True, max_length=255)
+    position_title = models.CharField(max_length=100, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'positions'

@@ -4,11 +4,14 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, action
 from django.db.models import Q
 from django.db import connection
-from .models import ReportMonitoring, ExternalProject, InternalProject
-from .serializers import ReportMonitoringSerializer
+from .models import ReportMonitoring, ExternalProject, InternalProject, Equipment, Employees, Positions
+from .serializers import (
+    ReportMonitoringSerializer, ExternalProjectSerializer, 
+    InternalProjectSerializer, EquipmentSerializer,
+    EmployeeSerializer, PositionSerializer
+)
 from datetime import date
 import logging
-
 logger = logging.getLogger(__name__)
 
 
@@ -225,6 +228,224 @@ class ReportMonitoringViewSet(viewsets.ModelViewSet):
                 'Department - Project Management',
             ]
             return Response(fallback_departments)
+        
+    @action(detail=False, methods=['get'])
+    def statistics(self, request):
+        try:
+            with connection.cursor() as cursor:
+                # Get report counts by type
+                cursor.execute("""
+                    SELECT 
+                        report_type, 
+                        COUNT(*) as count
+                    FROM 
+                        project_management.report_monitoring
+                    GROUP BY 
+                        report_type
+                    ORDER BY 
+                        count DESC
+                """)
+                
+                columns = [col[0] for col in cursor.description]
+                by_type = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                # Get report counts by month
+                cursor.execute("""
+                    SELECT 
+                        TO_CHAR(date_created, 'YYYY-MM') as month, 
+                        COUNT(*) as count
+                    FROM 
+                        project_management.report_monitoring
+                    WHERE
+                        date_created >= CURRENT_DATE - INTERVAL '1 year'
+                    GROUP BY 
+                        month
+                    ORDER BY 
+                        month
+                """)
+                
+                columns = [col[0] for col in cursor.description]
+                by_month = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                
+                # Get total counts
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as total,
+                        COUNT(CASE WHEN project_id IS NOT NULL THEN 1 END) as external_project_reports,
+                        COUNT(CASE WHEN intrnl_project_id IS NOT NULL THEN 1 END) as internal_project_reports
+                    FROM 
+                        project_management.report_monitoring
+                """)
+                
+                columns = [col[0] for col in cursor.description]
+                totals = dict(zip(columns, cursor.fetchone()))
+            
+            return Response({
+                "by_type": by_type,
+                "by_month": by_month,
+                "totals": totals
+            })
+        except Exception as e:
+            logger.error(f"Error fetching report statistics: {str(e)}")
+            return Response(
+                {"error": f"Failed to fetch report statistics: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    @action(detail=False, methods=['get'])
+    def project_details(self, request):
+        project_id = request.query_params.get('project_id')
+        internal_project_id = request.query_params.get('internal_project_id')
+        
+        try:
+            data = {}
+            
+            if project_id:
+                # Get external project details
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT 
+                            p.project_id, 
+                            p.ext_project_request_id, 
+                            p.project_status,
+                            c.client_name,
+                            c.contact_person,
+                            c.email,
+                            c.phone_number
+                        FROM 
+                            project_management.external_project_details p
+                        LEFT JOIN
+                            project_management.clients c ON p.client_id = c.client_id
+                        WHERE 
+                            p.project_id = %s
+                    """, [project_id])
+                    
+                    columns = [col[0] for col in cursor.description]
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        project_data = dict(zip(columns, result))
+                        data['project'] = project_data
+                        
+                        # Get equipment for this project
+                        cursor.execute("""
+                            SELECT 
+                                e.equipment_id,
+                                e.equipment_name,
+                                e.description,
+                                e.availability_status,
+                                pe.quantity
+                            FROM 
+                                project_management.project_equipment pe
+                            JOIN
+                                project_management.equipment e ON pe.equipment_id = e.equipment_id
+                            WHERE 
+                                pe.project_id = %s
+                            ORDER BY
+                                e.equipment_name
+                        """, [project_id])
+                        
+                        columns = [col[0] for col in cursor.description]
+                        equipment_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        data['equipment'] = equipment_results
+                        
+                        # Get assigned workers for this project
+                        cursor.execute("""
+                            SELECT 
+                                e.employee_id,
+                                e.first_name,
+                                e.last_name,
+                                p.position_title as job_role
+                            FROM 
+                                project_management.project_workers pw
+                            JOIN
+                                project_management.employees e ON pw.employee_id = e.employee_id
+                            JOIN
+                                project_management.positions p ON e.position = p.position_id
+                            WHERE 
+                                pw.project_id = %s
+                            ORDER BY
+                                p.position_title
+                        """, [project_id])
+                        
+                        columns = [col[0] for col in cursor.description]
+                        workers_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        data['workers'] = workers_results
+                
+            elif internal_project_id:
+                # Get internal project details
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT 
+                            p.intrnl_project_id, 
+                            p.project_request_id, 
+                            p.intrnl_project_status,
+                            p.approval_id
+                        FROM 
+                            project_management.internal_project_details p
+                        WHERE 
+                            p.intrnl_project_id = %s
+                    """, [internal_project_id])
+                    
+                    columns = [col[0] for col in cursor.description]
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        project_data = dict(zip(columns, result))
+                        data['project'] = project_data
+                        
+                        # Get equipment for this internal project
+                        cursor.execute("""
+                            SELECT 
+                                e.equipment_id,
+                                e.equipment_name,
+                                e.description,
+                                e.availability_status,
+                                pe.quantity
+                            FROM 
+                                project_management.internal_project_equipment pe
+                            JOIN
+                                project_management.equipment e ON pe.equipment_id = e.equipment_id
+                            WHERE 
+                                pe.intrnl_project_id = %s
+                            ORDER BY
+                                e.equipment_name
+                        """, [internal_project_id])
+                        
+                        columns = [col[0] for col in cursor.description]
+                        equipment_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        data['equipment'] = equipment_results
+                        
+                        # Get assigned workers for this internal project
+                        cursor.execute("""
+                            SELECT 
+                                e.employee_id,
+                                e.first_name,
+                                e.last_name,
+                                p.position_title as job_role
+                            FROM 
+                                project_management.internal_project_workers pw
+                            JOIN
+                                project_management.employees e ON pw.employee_id = e.employee_id
+                            JOIN
+                                project_management.positions p ON e.position = p.position_id
+                            WHERE 
+                                pw.intrnl_project_id = %s
+                            ORDER BY
+                                p.position_title
+                        """, [internal_project_id])
+                        
+                        columns = [col[0] for col in cursor.description]
+                        workers_results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                        data['workers'] = workers_results
+            
+            return Response(data)
+        except Exception as e:
+            logger.error(f"Error fetching project details: {str(e)}")
+            return Response(
+                {"error": f"Failed to fetch project details: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(['GET'])
@@ -297,4 +518,110 @@ def internal_projects(request):
             {"error": f"Failed to fetch internal projects: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['GET'])
+def equipment_list(request):
+    search = request.query_params.get('search', '')
+    
+    try:
+        with connection.cursor() as cursor:
+            query = """
+                SELECT 
+                    equipment_id, 
+                    equipment_name, 
+                    description,
+                    availability_status
+                FROM 
+                    production.equipment
+                WHERE 1=1
+            """
+            
+            params = []
+            if search:
+                query += " AND (equipment_name ILIKE %s OR description ILIKE %s)"
+                params.extend([f'%{search}%', f'%{search}%'])
+            
+            query += " ORDER BY equipment_name LIMIT 100"
+            
+            cursor.execute(query, params)
+            
+            columns = [col[0] for col in cursor.description]
+            equipment = [dict(zip(columns, row)) for row in cursor.fetchall()]
         
+        return Response(equipment)
+    except Exception as e:
+        logger.error(f"Error fetching equipment: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch equipment: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+def employees_list(request):
+    search = request.query_params.get('search', '')
+    position = request.query_params.get('position', '')
+    
+    try:
+        with connection.cursor() as cursor:
+            query = """
+                SELECT 
+                    e.employee_id, 
+                    e.first_name, 
+                    e.last_name,
+                    p.position_id,
+                    p.position_title
+                FROM 
+                    human_resources.employees e
+                JOIN
+                    human_resources.positions p ON e.position_id = p.position_id
+                WHERE 1=1
+            """
+            
+            params = []
+            if search:
+                query += " AND (e.first_name ILIKE %s OR e.last_name ILIKE %s OR e.employee_id ILIKE %s)"
+                params.extend([f'%{search}%', f'%{search}%', f'%{search}%'])
+            
+            if position:
+                query += " AND p.position_id = %s"
+                params.append(position)
+            
+            query += " ORDER BY e.last_name, e.first_name LIMIT 100"
+            
+            cursor.execute(query, params)
+            
+            columns = [col[0] for col in cursor.description]
+            employees = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        return Response(employees)
+    except Exception as e:
+        logger.error(f"Error fetching employees: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch employees: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['GET'])
+def positions_list(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    position_id, 
+                    position_title
+                FROM 
+                    human_resources.positions
+                ORDER BY 
+                    position_title
+            """)
+            
+            columns = [col[0] for col in cursor.description]
+            positions = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        
+        return Response(positions)
+    except Exception as e:
+        logger.error(f"Error fetching positions: {str(e)}")
+        return Response(
+            {"error": f"Failed to fetch positions: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
