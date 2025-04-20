@@ -146,6 +146,7 @@ function App() {
     "Project Management": {
       "Project List": "Project List",
       "Project Planning": "ProjectPlanning",
+      "Project Request": "Projectrequest",
       "Tasks": "TaskMonitoring",
       "Report Monitoring": "Reports",
       "Warranty Monitoring":"Warranties",

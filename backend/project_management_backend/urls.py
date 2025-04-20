@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/project-autocomplete/', warranty_views.project_autocomplete, name='project_autocomplete'),
     path('api/project-planning/', include('project_planning.urls')),    
     path('api/project-management/', include('project_list.urls')),
+    path('api/project_request/', include('project_request.urls')),    
     
     path('api/equipment/', report_views.equipment_list, name='equipment-list'),
     path('api/employees/', report_views.employees_list, name='employees-list'),

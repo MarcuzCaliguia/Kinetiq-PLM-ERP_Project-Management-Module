@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'project_warranties',
     'project_planning',
     'project_list',
+    'project_request',
     'dashboard',
 ]
 
