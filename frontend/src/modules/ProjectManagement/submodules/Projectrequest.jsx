@@ -217,194 +217,221 @@ const BodyContent = () => {
   };
 
   return (
-    <div className="body-content-container5">
+    <div className="body-content-container">
       {currentForm === 1 && (
-        <form onSubmit={handleFirstSubmitprojrequest}>
-          <h1 className="newreport">
-            <b>Internal Project Request</b>
-          </h1>
-          <label className="projectnamereq">
-            <b>Project Name</b>
-          </label>
-          <br />
-          <input
-            className="projectnamereq2"
-            type="text"
-            placeholder="Enter Project Name"
-            value={newInternalprojectname}
-            onChange={(e) => setNewInternalprojectname(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="requestdateprojreq">
-            <b>Request Date</b>
-          </label>
-          <br />
-          <input
-            className="requestdateprojreq2"
-            type="date"
-            placeholder="00/00/0000"
-            value={newInternalrequestdate}
-            onChange={(e) => setNewInternalrequestdate(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="startingreqdate">
-            <b>Starting Date</b>
-          </label>
-          <br />
-          <input
-            className="startingreqdate2"
-            type="date"
-            placeholder="00/00/0000"
-            value={newInternalstartingdate}
-            onChange={(e) => setNewInternalstartingdate(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="employeeidreq">
-            <b>Employee ID</b>
-          </label>
-          <br />
-          <div className="autocomplete-container">
-            <input
-              className="employeeidreq2"
-              type="text"
-              placeholder="Insert Employee ID"
-              value={newInternalemployeeid}
-              onChange={handleEmployeeInputChange}
-              required
-            />
-            {showEmployeeSuggestions && employeeSuggestions.length > 0 && (
-              <ul className="suggestions-list">
-                {employeeSuggestions.map((employee) => (
-                  <li 
-                    key={employee.employee_id} 
-                    onClick={() => selectEmployee(employee)}
-                  >
-                    {employee.employee_id} - {employee.first_name} {employee.last_name}
-                  </li>
-                ))}
-              </ul>
-            )}
+        <form onSubmit={handleFirstSubmitprojrequest} className="project-request-form">
+          <div className="form-header">
+            <h1 className="form-title">
+              <b>Internal Project Request</b>
+            </h1>
           </div>
-          <br />
 
-          <label className="deptidreq">
-            <b>Department ID</b>
-          </label>
-          <br />
-          <div className="autocomplete-container">
-            <input
-              className="deptidreq2"
-              type="text"
-              placeholder="Insert Department ID"
-              value={newInternaldepartmentid}
-              onChange={handleDepartmentInputChange}
-              required
-            />
-            {showDepartmentSuggestions && departmentSuggestions.length > 0 && (
-              <ul className="suggestions-list">
-                {departmentSuggestions.map((department) => (
-                  <li 
-                    key={department.dept_id} 
-                    onClick={() => selectDepartment(department)}
-                  >
-                    {department.dept_id} - {department.dept_name}
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="form-grid">
+            {/* Project Name */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Name</b>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Enter Project Name"
+                value={newInternalprojectname}
+                onChange={(e) => setNewInternalprojectname(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Request Date */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Request Date</b>
+              </label>
+              <input
+                className="form-input"
+                type="date"
+                placeholder="00/00/0000"
+                value={newInternalrequestdate}
+                onChange={(e) => setNewInternalrequestdate(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Starting Date */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Starting Date</b>
+              </label>
+              <input
+                className="form-input"
+                type="date"
+                placeholder="00/00/0000"
+                value={newInternalstartingdate}
+                onChange={(e) => setNewInternalstartingdate(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Employee ID */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Employee ID</b>
+              </label>
+              <div className="autocomplete-container">
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="Insert Employee ID"
+                  value={newInternalemployeeid}
+                  onChange={handleEmployeeInputChange}
+                  required
+                />
+                {showEmployeeSuggestions && employeeSuggestions.length > 0 && (
+                  <ul className="suggestions-list">
+                    {employeeSuggestions.map((employee) => (
+                      <li 
+                        key={employee.employee_id} 
+                        onClick={() => selectEmployee(employee)}
+                      >
+                        {employee.employee_id} - {employee.first_name} {employee.last_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* Department ID */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Department ID</b>
+              </label>
+              <div className="autocomplete-container">
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="Insert Department ID"
+                  value={newInternaldepartmentid}
+                  onChange={handleDepartmentInputChange}
+                  required
+                />
+                {showDepartmentSuggestions && departmentSuggestions.length > 0 && (
+                  <ul className="suggestions-list">
+                    {departmentSuggestions.map((department) => (
+                      <li 
+                        key={department.dept_id} 
+                        onClick={() => selectDepartment(department)}
+                      >
+                        {department.dept_id} - {department.dept_name}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* Budget Request */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Budget Request</b>
+              </label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                placeholder="Add Budget"
+                value={newInternalbudgetrequest}
+                onChange={(e) => setNewInternalbudgetrequest(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Budget Description */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Budget Description</b>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Add Description"
+                value={newInternalbudgetdescription}
+                onChange={(e) => setNewInternalbudgetdescription(e.target.value)}
+                required
+              />
+            </div>
+
+            {/* Project Description */}
+            <div className="form-group full-width">
+              <label className="form-label">
+                <b>Project Description</b>
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder="Add Description"
+                value={newInternalprojectdescription}
+                onChange={(e) => setNewInternalprojectdescription(e.target.value)}
+                required
+              />
+            </div>
           </div>
-          <br />
 
-          <label className="budgetreq3">
-            <b>Budget Request</b>
-          </label>
-          <br />
-          <input
-            className="budgetreq4"
-            type="number"
-            step="0.01"
-            placeholder="Add Budget"
-            value={newInternalbudgetrequest}
-            onChange={(e) => setNewInternalbudgetrequest(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="budgetdescription">
-            <b>Budget Description</b>
-          </label>
-          <br />
-          <input
-            className="budgetdescription2"
-            type="text"
-            placeholder="Add Description"
-            value={newInternalbudgetdescription}
-            onChange={(e) => setNewInternalbudgetdescription(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="projectdescriptionint">
-            <b>Project Description</b>
-          </label>
-          <br />
-          <textarea
-            className="projectdescriptionint2"
-            placeholder="Add Description"
-            value={newInternalprojectdescription}
-            onChange={(e) => setNewInternalprojectdescription(e.target.value)}
-            required
-          />
-          <br />
-          
-          <div className="intrequestsavebutton"> 
-            <button type="submit" className="saverep" disabled={submitLoading}>
-              <b>{submitLoading ? "Saving..." : "Save"}</b>
-            </button>
-            <button type="button" className="editrep" onClick={resetForm}>
-              <b>Reset</b>
-            </button>
+          <div className="form-footer">
+            <div className="button-group">
+              <button type="submit" className="btn btn-primary" disabled={submitLoading}>
+                <b>{submitLoading ? "Saving..." : "Save"}</b>
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={resetForm}>
+                <b>Reset</b>
+              </button>
+            </div>
+            
+            <div className="attachment-section">
+              <h2 className="attachment-title">
+                <b>Attachments</b>
+              </h2>
+              <button type="button" className="btn btn-attach">
+                <b>Attach File</b>
+              </button>
+            </div>
           </div>
-          <button type="button" className="attachfile">
-            <b>Attach File</b>
-          </button>
-          <h1 className="attach2">
-            <b>Attachments</b>
-          </h1>
         </form>
       )}
 
       {showReportList && (
-        <>
-          <h1 className="internalrequestlist">
-            <b>Internal Request Monitoring</b>
-          </h1>
-          <button onClick={handleBackClick} className="addreport">
-            <b>Add Request</b>
-          </button>
-          <button 
-            onClick={handleRemoveReports} 
-            className="removereport" 
-            disabled={selectedReports.length === 0 || loading}
-          >
-            <b>{loading ? "Removing..." : "Remove Request"}</b>
-          </button>
-          <div className="replisttable1">
+        <div className="report-list-container">
+          <div className="list-header">
+            <h1 className="list-title">
+              <b>Internal Request Monitoring</b>
+            </h1>
+            <div className="list-controls">
+              <button onClick={handleBackClick} className="btn btn-primary">
+                <b>Add Request</b>
+              </button>
+              <button 
+                onClick={handleRemoveReports} 
+                className="btn btn-danger" 
+                disabled={selectedReports.length === 0 || loading}
+              >
+                <b>{loading ? "Removing..." : "Remove Request"}</b>
+              </button>
+            </div>
+          </div>
+
+          <div className="table-responsive">
             {loading ? (
-              <p className="loading-text">Loading project requests...</p>
+              <div className="loading-state">
+                <p>Loading project requests...</p>
+              </div>
             ) : reportData.length === 0 ? (
-              <p className="no-data-text">No project requests found. Click "Add Request" to create one.</p>
+              <div className="empty-state">
+                <p>No project requests found. Click "Add Request" to create one.</p>
+              </div>
             ) : (
-              <table className="replist">
+              <table className="data-table">
                 <thead>
                   <tr>
-                    <th>
+                    <th className="checkbox-column">
                       <input 
                         type="checkbox" 
                         onChange={(e) => {
@@ -429,8 +456,8 @@ const BodyContent = () => {
                 </thead>
                 <tbody>
                   {reportData.map((item, index) => (
-                    <tr key={index} className={selectedReports.includes(index) ? "selected-row" : ""}>
-                      <td>
+                    <tr key={index} className={selectedReports.includes(index) ? "selected" : ""}>
+                      <td className="checkbox-column">
                         <input
                           type="checkbox"
                           checked={selectedReports.includes(index)}
@@ -444,19 +471,19 @@ const BodyContent = () => {
                       <td>{item.dept_id}</td>
                       <td>${parseFloat(item.project_budget_request).toFixed(2)}</td>
                       <td>{item.project_budget_description}</td>
-                      <td>{item.project_description}</td>
+                      <td className="description-column">{item.project_description}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {!showReportList && currentForm !== 1 && (
         <div className="view-list-container">
-          <button onClick={() => setShowReportList(true)} className="view-list-button">
+          <button onClick={() => setShowReportList(true)} className="btn btn-primary">
             <b>View Request List</b>
           </button>
         </div>

@@ -214,9 +214,9 @@ const BodyContent = () => {
     );
   }
 
-  // Rest of your render code...
+
   return (
-    <div className="body-content-container">
+    <div className="project-list-container">
       {error && (
         <div className="error-message">
           <p>{error}</p>
@@ -229,328 +229,307 @@ const BodyContent = () => {
         </div>
       )}
       
-      {showProjectRequestList ? (
-        <>
-          <div className="projreq">
-            <h1>
-              <b>Project Request</b>
-            </h1>
-          </div>
-          <h2 className="appr">
-            <b>Approve</b>
-          </h2>
-          <h2 className="nappr">
-            <b>Not Approve</b>
-          </h2>
-          <h2 className="og">
-            <b>Ongoing</b>
-          </h2>
+      <div className="content-wrapper">
+        {showProjectRequestList ? (
+          <>
+            <div className="header-section">
+              <h1 className="page-title">Project Request</h1>
+              
+              <div className="status-indicators">
+                <span className="status-indicator approved">
+                  <div className="status-dot"></div>
+                  <span>Approved</span>
+                </span>
+                <span className="status-indicator not-approved">
+                  <div className="status-dot"></div>
+                  <span>Not Approved</span>
+                </span>
+                <span className="status-indicator ongoing">
+                  <div className="status-dot"></div>
+                  <span>Ongoing</span>
+                </span>
+              </div>
+              
+              <div className="action-buttons">
+                <button className="btn btn-filter">
+                  <i className="filter-icon"></i>
+                  Filter By
+                </button>
+                <button className="btn btn-danger" onClick={handleRemoveRequests}>
+                  <i className="remove-icon"></i>
+                  Remove Request
+                </button>
+                <button className="btn btn-secondary" onClick={handleProjectRequestDetailsClick}>
+                  <i className="details-icon"></i>
+                  Project Request Details
+                </button>
+              </div>
+            </div>
 
-          <button className="filter">Filter By</button>
-          <button className="remove" onClick={handleRemoveRequests}>
-            Remove Request
-          </button>
+            <div className="tab-navigation">
+              <button
+                className={`tab-button ${selectedNav === "Internal Request" ? "active" : ""}`}
+                onClick={() => handleNavClick("Internal Request")}
+              >
+                Internal Request
+              </button>
+              <button
+                className={`tab-button ${selectedNav === "External Request" ? "active" : ""}`}
+                onClick={() => handleNavClick("External Request")}
+              >
+                External Request
+              </button>
+            </div>
 
-          <button className="projectrequestlist" onClick={handleProjectRequestDetailsClick}>
-            <b>Project Request Details</b>
-          </button>
-
-          <div className="rectangle4"></div>
-
-          <div className="topnavreq">
-            <button
-              className={`nav-button ${
-                selectedNav === "Internal Request" ? "selected1" : ""
-              }`}
-              onClick={() => handleNavClick("Internal Request")}
-            >
-              <b>Internal Request</b>
-            </button>
-
-            <button
-              className={`nav-button ${
-                selectedNav === "External Request" ? "selected1" : ""
-              }`}
-              onClick={() => handleNavClick("External Request")}
-            >
-              <b>External Request</b>
-            </button>
-          </div>
-
-          {selectedNav === "Internal Request" && (
-  <div className="reqtable2">
-    {loadingLabor ? (
-      <div className="loading-message">Loading internal labor data...</div>
-    ) : (
-      <table className="reqtable3">
-        <thead>
-          <tr>
-            <th></th>
-            <th>
-              <b>Int Project Labor ID</b>
-            </th>
-            <th>
-              <b>Project ID</b>
-            </th>
-            <th>
-              <b>Job Roles Needed</b>
-            </th>
-            <th>
-              <b>Employee ID</b>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {internalLabor.length > 0 ? (
-            internalLabor.map((item, index) => (
-              <tr key={index}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedRequests[index] || false}
-                    onChange={() => handleCheckboxChange(index)}
-                  />
-                </td>
-                <td>{item.project_labor_id}</td>
-                <td>{item.project_id}</td>
-                <td>{item.job_role_needed}</td>
-                <td>{item.employee_id}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="5" className="no-data">No internal labor data available</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
-
-         {selectedNav === "External Request" && (
-  <div className="reqtable4">
-    {loadingExternal ? (
-      <div className="loading-message">Loading external request data...</div>
-    ) : (
-      <table className="reqtable5">
-        <thead>
-          <tr>
-            <th></th>
-            <th>
-              <b>ExtProject ID</b>
-            </th>
-            <th>
-              <b>Project Request ID</b>
-            </th>
-            <th>
-              <b>Project Status</b>
-            </th>
-            <th>
-              <b>Job Role Needed</b>
-            </th>
-            <th>
-              <b>Employee ID</b>
-            </th>
-            <th>
-              <b>Project Equipment ID</b>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {externalRequests.length > 0 ? (
-            externalRequests.map((item, index) => (
-              <tr key={index}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={selectedRequests[index] || false}
-                    onChange={() => handleCheckboxChange(index)}
-                  />
-                </td>
-                <td>{item.project_id}</td>
-                <td>{item.ext_project_request_id}</td>
-                <td>{item.project_status}</td>
-                {/* The next properties might need adjustment based on your API response */}
-                <td>N/A</td>
-                <td>N/A</td>
-                <td>N/A</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="7" className="no-data">No external request data available</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    )}
-  </div>
-)}
-
-          <div id="line5"></div>
-          <div id="line6"></div>
-        </>
-      ) : (
-        <>
-          <div className="projectdetailsnav">
-            <button
-              className={`nav-button ${
-                selectedNavdetails === "Internal Details" ? "selected1" : ""
-              }`}
-              onClick={() => handleNavDetailsClick("Internal Details")}
-            >
-              <b>Internal Details</b>
-            </button>
-
-            <button
-              className={`nav-button ${
-                selectedNavdetails === "External Details" ? "selected1" : ""
-              }`}
-              onClick={() => handleNavDetailsClick("External Details")}
-            >
-              <b>External Details</b>
-            </button>
-          </div>
-
-          {selectedNavdetails === "Internal Details" && (
-            <div className="internaldetails1">
-              {loadingInternalDetails ? (
-                <div className="loading-message">Loading internal details...</div>
-              ) : (
-                <table className="internaldetails">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>
-                        <b>Int Project ID</b>
-                      </th>
-                      <th>
-                        <b>Project Request ID</b>
-                      </th>
-                      <th>
-                        <b>Project Name</b>
-                      </th>
-                      <th>
-                        <b>Project Status</b>
-                      </th>
-                      <th>
-                        <b>Approval ID</b>
-                      </th>
-                      <th>
-                        <b>Employee ID</b>
-                      </th>
-                      <th>
-                        <b>Department ID</b>
-                      </th>
-                      <th>
-                        <b>Budget Request</b>
-                      </th>
-                      <th>
-                        <b>Budget Description</b>
-                      </th>
-                      <th>
-                        <b>Project Description</b>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {internalDetails.length > 0 ? (
-                      internalDetails.map((item, index) => (
-                        <tr key={index}>
-                          <td></td>
-                          <td>{item.intrnl_project_id}</td>
-                          <td>{item.project_request?.project_request_id}</td>
-                          <td>{item.project_request?.project_name}</td>
-                          <td>{item.intrnl_project_status}</td>
-                          <td>{item.approval_id}</td>
-                          <td>{item.project_request?.employee_id}</td>
-                          <td>{item.project_request?.dept_id}</td>
-                          <td>{item.project_request?.project_budget_request}</td>
-                          <td>{item.project_request?.project_budget_description}</td>
-                          <td>{item.project_request?.project_description}</td>
+            <div className="table-container">
+              {selectedNav === "Internal Request" && (
+                <div className="data-table-wrapper">
+                  {loadingLabor ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading internal labor data...</p>
+                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="select-col"></th>
+                          <th>Int Project Labor ID</th>
+                          <th>Project ID</th>
+                          <th>Job Roles Needed</th>
+                          <th>Employee ID</th>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="11" className="no-data">No internal details available</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {internalLabor.length > 0 ? (
+                          internalLabor.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRequests[index] || false}
+                                  onChange={() => handleCheckboxChange(index)}
+                                />
+                              </td>
+                              <td>{item.project_labor_id}</td>
+                              <td>{item.project_id}</td>
+                              <td>{item.job_role_needed}</td>
+                              <td>{item.employee_id}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" className="no-data">
+                              No internal labor data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {selectedNav === "External Request" && (
+                <div className="data-table-wrapper">
+                  {loadingExternal ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading external request data...</p>
+                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="select-col"></th>
+                          <th>ExtProject ID</th>
+                          <th>Project Request ID</th>
+                          <th>Project Status</th>
+                          <th>Job Role Needed</th>
+                          <th>Employee ID</th>
+                          <th>Project Equipment ID</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {externalRequests.length > 0 ? (
+                          externalRequests.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRequests[index] || false}
+                                  onChange={() => handleCheckboxChange(index)}
+                                />
+                              </td>
+                              <td>{item.project_id}</td>
+                              <td>{item.ext_project_request_id}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase()}`}>
+                                  {item.project_status}
+                                </span>
+                              </td>
+                              <td>N/A</td>
+                              <td>N/A</td>
+                              <td>N/A</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="no-data">
+                              No external request data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               )}
             </div>
-          )}
+          </>
+        ) : (
+          <>
+            <div className="header-section">
+              <h1 className="page-title">Project Details</h1>
+              <button onClick={handleBackClick} className="btn btn-back">
+                <i className="back-icon"></i>
+                Back
+              </button>
+            </div>
 
-          {selectedNavdetails === "External Details" && (
-            <div className="externaldetails1">
-              {loadingExternalDetails ? (
-                <div className="loading-message">Loading external details...</div>
-              ) : (
-                <table className="externaldetails">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>
-                        <b>ExtProject ID</b>
-                      </th>
-                      <th>
-                        <b>Project Name</b>
-                      </th>
-                      <th>
-                        <b>Project Description</b>
-                      </th>
-                      <th>
-                        <b>Approval Id</b>
-                      </th>
-                      <th>
-                        <b>Item ID</b>
-                      </th>
-                      <th>
-                        <b>Project Status</b>
-                      </th>
-                      <th>
-                        <b>Warranty Coverage</b>
-                      </th>
-                      <th>
-                        <b>Warranty Start Date</b>
-                      </th>
-                      <th>
-                        <b>Warranty End Date</b>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {externalDetails.length > 0 ? (
-                      externalDetails.map((item, index) => (
-                        <tr key={index}>
-                          <td></td>
-                          <td>{item.project_id}</td>
-                          <td>{item.ext_project_request?.ext_project_name}</td>
-                          <td>{item.ext_project_request?.ext_project_description}</td>
-                          <td>{item.ext_project_request?.approval_id}</td>
-                          <td>{item.ext_project_request?.item_id}</td>
-                          <td>{item.project_status}</td>
-                          <td>{item.warranty?.warranty_coverage_yr} {item.warranty?.warranty_coverage_yr ? 'Years' : ''}</td>
-                          <td>{item.warranty?.warranty_start_date}</td>
-                          <td>{item.warranty?.warranty_end_date}</td>
+            <div className="tab-navigation">
+              <button
+                className={`tab-button ${selectedNavdetails === "Internal Details" ? "active" : ""}`}
+                onClick={() => handleNavDetailsClick("Internal Details")}
+              >
+                Internal Details
+              </button>
+              <button
+                className={`tab-button ${selectedNavdetails === "External Details" ? "active" : ""}`}
+                onClick={() => handleNavDetailsClick("External Details")}
+              >
+                External Details
+              </button>
+            </div>
+
+            <div className="table-container">
+              {selectedNavdetails === "Internal Details" && (
+                <div className="data-table-wrapper">
+                  {loadingInternalDetails ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading internal details...</p>
+                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="select-col"></th>
+                          <th>Int Project ID</th>
+                          <th>Project Request ID</th>
+                          <th>Project Name</th>
+                          <th>Project Status</th>
+                          <th>Approval ID</th>
+                          <th>Employee ID</th>
+                          <th>Department ID</th>
+                          <th>Budget Request</th>
+                          <th>Budget Description</th>
+                          <th>Project Description</th>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="10" className="no-data">No external details available</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {internalDetails.length > 0 ? (
+                          internalDetails.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col"></td>
+                              <td>{item.intrnl_project_id}</td>
+                              <td>{item.project_request?.project_request_id}</td>
+                              <td>{item.project_request?.project_name}</td>
+                              <td>
+                                <span className={`status-badge ${item.intrnl_project_status?.toLowerCase()}`}>
+                                  {item.intrnl_project_status}
+                                </span>
+                              </td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.project_request?.employee_id}</td>
+                              <td>{item.project_request?.dept_id}</td>
+                              <td>{item.project_request?.project_budget_request}</td>
+                              <td>{item.project_request?.project_budget_description}</td>
+                              <td>{item.project_request?.project_description}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="11" className="no-data">
+                              No internal details available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {selectedNavdetails === "External Details" && (
+                <div className="data-table-wrapper">
+                  {loadingExternalDetails ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading external details...</p>
+                    </div>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th className="select-col"></th>
+                          <th>ExtProject ID</th>
+                          <th>Project Name</th>
+                          <th>Project Description</th>
+                          <th>Approval Id</th>
+                          <th>Item ID</th>
+                          <th>Project Status</th>
+                          <th>Warranty Coverage</th>
+                          <th>Warranty Start Date</th>
+                          <th>Warranty End Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {externalDetails.length > 0 ? (
+                          externalDetails.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col"></td>
+                              <td>{item.project_id}</td>
+                              <td>{item.ext_project_request?.ext_project_name}</td>
+                              <td>{item.ext_project_request?.ext_project_description}</td>
+                              <td>{item.ext_project_request?.approval_id}</td>
+                              <td>{item.ext_project_request?.item_id}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase()}`}>
+                                  {item.project_status}
+                                </span>
+                              </td>
+                              <td>{item.warranty?.warranty_coverage_yr} {item.warranty?.warranty_coverage_yr ? 'Years' : ''}</td>
+                              <td>{item.warranty?.warranty_start_date}</td>
+                              <td>{item.warranty?.warranty_end_date}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="10" className="no-data">
+                              No external details available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               )}
             </div>
-          )}
-          <button onClick={handleBackClick} className="back1">
-            <b>Back</b>
-          </button>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 };

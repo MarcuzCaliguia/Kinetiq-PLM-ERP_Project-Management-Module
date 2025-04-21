@@ -385,531 +385,537 @@ const handleNavClickdash = (nav) => {
         setNewProjectRequestIDInternal(request.project_request_id);
         setProjectRequestSearchResults([]);
     };
-  
     return (
-        <div className="body-content-container">
+        <div className="project-management-container">
             {!showAddProjectForm ? (
-                <>
-                    <h1 className="overview"><b>Overview</b></h1>
-                    <h2 className="overdue1"><b>Overdue Task</b></h2>
-                    <h2 className="tft"><b>Tasks for Today</b></h2>
-                    <h2 className="projsum"><b>Project Summary</b></h2>
-                    <div className="rectangle"></div>
-                    <div className="rectangle2"></div>
-                    <div className="rectangle3"></div>
-                    <button className="add"><b>New task</b></button>
-  
-                    <div className="scroll">
-                        <table className="tb">
-                            <thead>
-                                <tr>
-                                    <th><b>Overdue</b></th>
-                                    <th><b>Task</b></th>
-                                    <th><b>Deadline</b></th>
-                                    <th><b>Employee</b></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {isLoading.overdueTasks ? (
-                                    <tr><td colSpan="4">Loading...</td></tr>
-                                ) : errors.overdueTasks ? (
-                                    <tr><td colSpan="4">Error: {errors.overdueTasks}</td></tr>
-                                ) : overdueTasks.length === 0 ? (
-                                    <tr><td colSpan="4">No overdue tasks</td></tr>
-                                ) : (
-                                    overdueTasks.map((item, index) => (
-                                        <tr key={index}>
-                                            <td className="due"><b>{item.Overdue}</b></td>
-                                            <td>{item.Task}</td>
-                                            <td>{item.Deadline}</td>
-                                            <td>{item.Employee}</td>
+                <div className="dashboard-view">
+                    {/* Header Section */}
+                    <div className="dashboard-header">
+                        <h1 className="dashboard-title">Project Overview</h1>
+                        <button className="new-task-btn">+ New Task</button>
+                    </div>
+
+                    {/* Main Dashboard Sections */}
+                    <div className="dashboard-sections">
+                        {/* Overdue Tasks Section */}
+                        <div className="dashboard-section overdue-tasks-section">
+                            <div className="section-header">
+                                <h2>Overdue Tasks</h2>
+                            </div>
+                            <div className="section-content">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Overdue</th>
+                                            <th>Task</th>
+                                            <th>Deadline</th>
+                                            <th>Employee</th>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                    
-                    {/* Project Summary Section */}
-                    <div className="project-summary-container">
-                        <div className="project-summary-scroll">
-                            <table className="project-summary-table">
-                                <thead>
-                                    <tr>
-                                        <th><b>ID</b></th>
-                                        <th><b>Project ID</b></th>
-                                        <th><b>Type</b></th>
-                                        <th><b>Start Date</b></th>
-                                        <th><b>End Date</b></th>
-                                        <th><b>Status</b></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {isLoading.projectSummary ? (
-                                        <tr><td colSpan="6">Loading...</td></tr>
-                                    ) : errors.projectSummary ? (
-                                        <tr><td colSpan="6">Error: {errors.projectSummary}</td></tr>
-                                    ) : projectSummary.length === 0 ? (
-                                        <tr><td colSpan="6">No projects found</td></tr>
-                                    ) : (
-                                        projectSummary.map((project, index) => (
-                                            <tr key={index}>
-                                                <td>{project.id}</td>
-                                                <td><b>{project.projectId}</b></td>
-                                                <td>{project.type}</td>
-                                                <td>{project.startDate}</td>
-                                                <td>{project.endDate}</td>
-                                                <td>
-                                                    {project.issue ? 
-                                                        <span className="status-issue">Has Issues</span> : 
-                                                        <span className="status-ok">On Track</span>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {isLoading.overdueTasks ? (
+                                            <tr><td colSpan="4" className="loading-cell">Loading...</td></tr>
+                                        ) : errors.overdueTasks ? (
+                                            <tr><td colSpan="4" className="error-cell">Error: {errors.overdueTasks}</td></tr>
+                                        ) : overdueTasks.length === 0 ? (
+                                            <tr><td colSpan="4" className="no-data-cell">No overdue tasks</td></tr>
+                                        ) : (
+                                            overdueTasks.map((item, index) => (
+                                                <tr key={index}>
+                                                    <td className="due"><b>{item.Overdue}</b></td>
+                                                    <td>{item.Task}</td>
+                                                    <td>{item.Deadline}</td>
+                                                    <td>{item.Employee}</td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div>
-                        <div className="top-nav2">
-                            <button
-                                className={`nav-button ${selectedNav2 === "Internal Project" ? "selected2" : ""}`}
-                                onClick={() => handleNavClick("Internal Project")}
-                            >
-                                <b>Internal Project</b>
-                            </button>
-                            <button
-                                className={`nav-button ${selectedNav2 === "External Project" ? "selected2" : ""}`}
-                                onClick={() => handleNavClick("External Project")}
-                            >
-                                <b>External Project</b>
-                            </button>
-                        </div>
-                        <button className="AddProject" onClick={handleAddProjectClick}><b>Add Project</b></button>
-                    </div>
-  
-                    <div className="dashtable">
-                        {selectedNav2 === "External Project" && (
-                            <table className="dashtable3">
-                                <thead>
-                                    <tr>
-                                        <th><b>Project Tracking ID</b></th>
-                                        <th><b>Project ID</b></th>
-                                        <th><b>Project Milestone</b></th>
-                                        <th><b>Start Date</b></th>
-                                        <th><b>Est. End Date</b></th>
-                                        <th><b>Project Warranty ID</b></th>
-                                        <th><b>Project Issue</b></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {isLoading.externalProjects ? (
-                                        <tr><td colSpan="7">Loading...</td></tr>
-                                    ) : errors.externalProjects ? (
-                                        <tr><td colSpan="7">Error: {errors.externalProjects}</td></tr>
-                                    ) : dataExternal.length === 0 ? (
-                                        <tr><td colSpan="7">No external projects</td></tr>
-                                    ) : (
-                                        dataExternal.map((item, index) => (
-                                            <tr key={index}>
-                                                <td>{item.ProjectTrackingID}</td>
-                                                <td><b>{item.ProjectID}</b></td>
-                                                <td>{item.ProjectMilestone}</td>
-                                                <td>{item.StartDate}</td>
-                                                <td>{item.EstimatedEndDate}</td>
-                                                <td>{item.ProjectWarrantyStatus}</td>
-                                                <td>{item.ProjectIssue}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-  
-                    <div className="dashtableinternal">
-                        {selectedNav2 === "Internal Project" && (
-                            <table className="dashtableinternal2">
-                                <thead>
-                                    <tr>
-                                        <th><b>Project Tracking ID</b></th>
-                                        <th><b>Project ID</b></th>
-                                        <th><b>Start Date</b></th>
-                                        <th><b>Est. End Date</b></th>
-                                        <th><b>Project Issue</b></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {isLoading.internalProjects ? (
-                                        <tr><td colSpan="5">Loading...</td></tr>
-                                    ) : errors.internalProjects ? (
-                                        <tr><td colSpan="5">Error: {errors.internalProjects}</td></tr>
-                                    ) : dataInternal.length === 0 ? (
-                                        <tr><td colSpan="5">No internal projects</td></tr>
-                                    ) : (
-                                        dataInternal.map((item, index) => (
-                                            <tr key={index}>
-                                                <td>{item.ProjectTrackingID}</td>
-                                                <td><b>{item.ProjectID}</b></td>
-                                                <td>{item.StartDate}</td>
-                                                <td>{item.EstimatedEndDate}</td>
-                                                <td>{item.ProjectIssue}</td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-  
-                    <div className="scroll2">
-                        <table className="tb2">
-                            <thead>
-                                <tr>
-                                    <th
-                                        className={`nav-button2 ${selectedNav3 === 'All3' ? 'selected3' : ''}`}
+
+                        {/* Today's Tasks Section */}
+                        <div className="dashboard-section todays-tasks-section">
+                            <div className="section-header">
+                                <h2>Today's Tasks</h2>
+                            </div>
+                            <div className="section-content">
+                                <div className="task-tabs">
+                                    <button
+                                        className={`task-tab ${selectedNav3 === 'All3' ? 'active' : ''}`}
                                         onClick={() => handleNavClick2('All3')}
                                     >
-                                        <b>All</b>
-                                        {selectedNav3 === 'All3' && (
-                                            <div className="tasklist">
-                                                <form>
-                                                    {isLoading.todayTasks ? (
-                                                        <div>Loading...</div>
-                                                    ) : errors.todayTasks ? (
-                                                        <div>Error: {errors.todayTasks}</div>
-                                                    ) : todayTasks.length === 0 ? (
-                                                        <div>No tasks for today</div>
-                                                    ) : (
-                                                        todayTasks.map((task, index) => (
-                                                            <div key={index}>
-                                                                <input type="checkbox" id={`task-${index}`} name={`task-${index}`} />
-                                                                <label htmlFor={`task-${index}`}>{task.Task}</label>
-                                                                <br />
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </form>
-                                            </div>
-                                        )}
-                                    </th>
-                                    <th
-                                        className={`nav-button2 ${selectedNav3 === 'Important' ? 'selected3' : ''}`}
+                                        All
+                                    </button>
+                                    <button
+                                        className={`task-tab ${selectedNav3 === 'Important' ? 'active' : ''}`}
                                         onClick={() => handleNavClick2('Important')}
                                     >
-                                        <b>Important</b>
-                                        {selectedNav3 === 'Important' && (
-                                            <div className="tasklist2">
-                                                <form>
-                                                    <input type="checkbox" id="docu6" name="docu6" value="documents6" />
-                                                    <label htmlFor="docu6">None</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu7" name="docu7" value="documents7" />
-                                                    <label htmlFor="docu7">None</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu8" name="docu8" value="documents8" />
-                                                    <label htmlFor="docu8">None</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu9" name="docu9" value="documents9" />
-                                                    <label htmlFor="docu9">None</label>
-                                                    <br />
-                                                </form>
-                                            </div>
-                                        )}
-                                    </th>
-                                    <th
-                                        className={`nav-button2 ${selectedNav3 === 'Notes' ? 'selected3' : ''}`}
+                                        Important
+                                    </button>
+                                    <button
+                                        className={`task-tab ${selectedNav3 === 'Notes' ? 'active' : ''}`}
                                         onClick={() => handleNavClick2('Notes')}
                                     >
-                                        <b>Notes</b>
-                                        {selectedNav3 === 'Notes' && (
-                                            <div className="tasklist3">
-                                                <form>
-                                                    <input type="checkbox" id="docu10" name="docu10" value="documents10" />
-                                                    <label htmlFor="docu10">Notes</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu11" name="docu11" value="documents11" />
-                                                    <label htmlFor="docu11">Notes</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu12" name="docu12" value="documents12" />
-                                                    <label htmlFor="docu12">Notes</label>
-                                                    <br />
-                                                    <input type="checkbox" id="docu13" name="docu13" value="documents13" />
-                                                    <label htmlFor="docu13">Notes</label>
-                                                    <br />
-                                                </form>
-                                            </div>
-                                        )}
-                                    </th>
-                                    <th
-                                        className={`nav-button2 ${selectedNav3 === 'Links' ? 'selected3' : ''}`}
+                                        Notes
+                                    </button>
+                                    <button
+                                        className={`task-tab ${selectedNav3 === 'Links' ? 'active' : ''}`}
                                         onClick={() => handleNavClick2('Links')}
                                     >
-                                        <b>Links</b>
-                                    </th>
-                                </tr>
-                            </thead>
-                        </table>
+                                        Links
+                                    </button>
+                                </div>
+
+                                {selectedNav3 === 'All3' && (
+                                    <div className="task-list-container">
+                                        {isLoading.todayTasks ? (
+                                            <div className="loading-cell">Loading...</div>
+                                        ) : errors.todayTasks ? (
+                                            <div className="error-cell">Error: {errors.todayTasks}</div>
+                                        ) : todayTasks.length === 0 ? (
+                                            <div className="no-data-cell">No tasks for today</div>
+                                        ) : (
+                                            <form className="task-list-form">
+                                                {todayTasks.map((task, index) => (
+                                                    <div key={index} className="task-item">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            id={`task-${index}`} 
+                                                            name={`task-${index}`} 
+                                                        />
+                                                        <label htmlFor={`task-${index}`}>{task.Task}</label>
+                                                    </div>
+                                                ))}
+                                            </form>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Project Summary Section */}
+                        <div className="dashboard-section project-summary-section">
+                            <div className="section-header">
+                                <h2>Project Summary</h2>
+                            </div>
+                            <div className="section-content">
+                                <table className="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Project ID</th>
+                                            <th>Type</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {isLoading.projectSummary ? (
+                                            <tr><td colSpan="6" className="loading-cell">Loading...</td></tr>
+                                        ) : errors.projectSummary ? (
+                                            <tr><td colSpan="6" className="error-cell">Error: {errors.projectSummary}</td></tr>
+                                        ) : projectSummary.length === 0 ? (
+                                            <tr><td colSpan="6" className="no-data-cell">No projects found</td></tr>
+                                        ) : (
+                                            projectSummary.map((project, index) => (
+                                                <tr key={index} className={project.issue ? "has-issue" : ""}>
+                                                    <td>{project.id}</td>
+                                                    <td><b>{project.projectId}</b></td>
+                                                    <td>{project.type}</td>
+                                                    <td>{project.startDate}</td>
+                                                    <td>{project.endDate}</td>
+                                                    <td>
+                                                        {project.issue ? 
+                                                            <span className="status-badge issue">Has Issues</span> : 
+                                                            <span className="status-badge ok">On Track</span>
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Projects Section */}
+                        <div className="dashboard-section projects-section">
+                            <div className="section-header">
+                                <div className="project-type-tabs">
+                                    <button
+                                        className={`project-tab ${selectedNav2 === "Internal Project" ? "active" : ""}`}
+                                        onClick={() => handleNavClick("Internal Project")}
+                                    >
+                                        Internal Projects
+                                    </button>
+                                    <button
+                                        className={`project-tab ${selectedNav2 === "External Project" ? "active" : ""}`}
+                                        onClick={() => handleNavClick("External Project")}
+                                    >
+                                        External Projects
+                                    </button>
+                                </div>
+                                <button className="add-project-btn" onClick={handleAddProjectClick}>
+                                    + Add Project
+                                </button>
+                            </div>
+                            <div className="section-content">
+                                {selectedNav2 === "External Project" && (
+                                    <div className="table-container">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Project Tracking ID</th>
+                                                    <th>Project ID</th>
+                                                    <th>Project Milestone</th>
+                                                    <th>Start Date</th>
+                                                    <th>Est. End Date</th>
+                                                    <th>Project Warranty ID</th>
+                                                    <th>Project Issue</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {isLoading.externalProjects ? (
+                                                    <tr><td colSpan="7" className="loading-cell">Loading...</td></tr>
+                                                ) : errors.externalProjects ? (
+                                                    <tr><td colSpan="7" className="error-cell">Error: {errors.externalProjects}</td></tr>
+                                                ) : dataExternal.length === 0 ? (
+                                                    <tr><td colSpan="7" className="no-data-cell">No external projects</td></tr>
+                                                ) : (
+                                                    dataExternal.map((item, index) => (
+                                                        <tr key={index} className={item.ProjectIssue ? "has-issue" : ""}>
+                                                            <td>{item.ProjectTrackingID}</td>
+                                                            <td><b>{item.ProjectID}</b></td>
+                                                            <td>{item.ProjectMilestone}</td>
+                                                            <td>{item.StartDate}</td>
+                                                            <td>{item.EstimatedEndDate}</td>
+                                                            <td>{item.ProjectWarrantyStatus}</td>
+                                                            <td>{item.ProjectIssue}</td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                                {selectedNav2 === "Internal Project" && (
+                                    <div className="table-container">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Project Tracking ID</th>
+                                                    <th>Project ID</th>
+                                                    <th>Start Date</th>
+                                                    <th>Est. End Date</th>
+                                                    <th>Project Issue</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {isLoading.internalProjects ? (
+                                                    <tr><td colSpan="5" className="loading-cell">Loading...</td></tr>
+                                                ) : errors.internalProjects ? (
+                                                    <tr><td colSpan="5" className="error-cell">Error: {errors.internalProjects}</td></tr>
+                                                ) : dataInternal.length === 0 ? (
+                                                    <tr><td colSpan="5" className="no-data-cell">No internal projects</td></tr>
+                                                ) : (
+                                                    dataInternal.map((item, index) => (
+                                                        <tr key={index} className={item.ProjectIssue ? "has-issue" : ""}>
+                                                            <td>{item.ProjectTrackingID}</td>
+                                                            <td><b>{item.ProjectID}</b></td>
+                                                            <td>{item.StartDate}</td>
+                                                            <td>{item.EstimatedEndDate}</td>
+                                                            <td>{item.ProjectIssue}</td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <div className="top-nav-container">
-                        <div id="linedashboard"></div>
-                    </div>
-                </>
+                </div>
             ) : (
-                <div className="add-project-form">
-                    <div className="addprojectnav">
-                        <button
-                            className={`nav-button ${selectedNavplan === "Internal" ? "selected1" : ""}`}
-                            onClick={() => handleNavClickdash("Internal")}
-                        >
-                            <b>Internal</b>
-                        </button>
-                        <button
-                            className={`nav-button ${selectedNavplan === "External" ? "selected1" : ""}`}
-                            onClick={() => handleNavClickdash("External")}
-                        >
-                            <b>External</b>
-                        </button>
-                    </div>
-                    <h2 className='addprojectnew'><b>New Project Plan</b></h2>
-                    <h2 className='projectracking'>Project Tracking</h2>
-                    {selectedNavplan === "External" && (
-    <>
-        <form onSubmit={handleAddExternalProject} className="project-form">
-            <div className="form-row">
-                <div className="form-column">
-                    <label className="form-label">
-                        <b>Project ID*</b>
-                    </label>
-                    <div className="search-container">
-                        <input className="form-input"
-                            type="text"
-                            placeholder="Name"
-                            value={newProjectIDExternal}
-                            onChange={handleExternalProjectIDChange}
-                            onFocus={() => fetchInitialExternalProjects()}
-                            required
-                        />
-                        {externalProjectSearchResults.length > 0 && (
-                            <div className="search-results">
-                                {externalProjectSearchResults.map((project, index) => (
-                                    <div 
-                                        key={index} 
-                                        className="search-result-item"
-                                        onClick={() => selectExternalProject(project)}
-                                    >
-                                        {project.project_id}
-                                    </div>
-                                ))}
+                <div className="add-project-modal">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2>New Project Plan</h2>
+                            <div className="project-type-tabs">
+                                <button
+                                    className={`project-tab ${selectedNavplan === "Internal" ? "active" : ""}`}
+                                    onClick={() => handleNavClickdash("Internal")}
+                                >
+                                    Internal
+                                </button>
+                                <button
+                                    className={`project-tab ${selectedNavplan === "External" ? "active" : ""}`}
+                                    onClick={() => handleNavClickdash("External")}
+                                >
+                                    External
+                                </button>
                             </div>
-                        )}
-                    </div>
-                    
-                    <label className="form-label">
-                        <b>Project Milestone</b>
-                    </label>
-                    <select
-                        className="form-input"
-                        value={selectedProjectMilestoneExternal}
-                        onChange={(e) => setSelectedProjectMilestoneExternal(e.target.value)}
-                        required
-                    >
-                        <option value="">Choose Project Milestone</option>
-                        <option value="Project Initiation Completed">Project Initiation Completed</option>
-                        <option value="Project Initiation Ongoing">Project Initiation Ongoing</option>
-                        <option value="Project Initiation Rejected">Project Initiation Rejected</option>
-                    </select>
-                    
-                    <label className="form-label">
-                        <b>Start Date</b>
-                    </label>
-                    <input
-                        className="form-input"
-                        type="date"
-                        value={newStartDateExternal}
-                        onChange={(e) => setNewStartDateExternal(e.target.value)}
-                        required
-                    />
-                    
-                    <label className="form-label">
-                        <b>Est. End Date</b>
-                    </label>
-                    <input
-                        className="form-input"
-                        type="date"
-                        value={newEndDateExternal}
-                        onChange={(e) => setNewEndDateExternal(e.target.value)}
-                        required
-                    />
-                    
-                    <label className="form-label">
-                        <b>Project Warranty ID</b>
-                    </label>
-                    <div className="search-container">
-                        <input
-                            className="form-input"
-                            type="text"
-                            placeholder="Insert Warranty ID"
-                            value={newProjectWarrantyIDExternal}
-                            onChange={handleWarrantyIDChange}
-                            onFocus={() => fetchInitialWarranties()}
-                        />
-                        {warrantySearchResults.length > 0 && (
-                            <div className="search-results">
-                                {warrantySearchResults.map((warranty, index) => (
-                                    <div 
-                                        key={index} 
-                                        className="search-result-item"
-                                        onClick={() => selectWarranty(warranty)}
-                                    >
-                                        {warranty.id} - {warranty.coverage_years} years
+                        </div>
+
+                        <div className="modal-body">
+                            <h3 className="section-title">Project Tracking</h3>
+                            
+                            {selectedNavplan === "External" && (
+                                <form onSubmit={handleAddExternalProject} className="project-form">
+                                    <div className="form-row">
+                                        <div className="form-column">
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project ID*
+                                                </label>
+                                                <div className="search-container">
+                                                    <input 
+                                                        className="form-input"
+                                                        type="text"
+                                                        placeholder="Project ID"
+                                                        value={newProjectIDExternal}
+                                                        onChange={handleExternalProjectIDChange}
+                                                        onFocus={() => fetchInitialExternalProjects()}
+                                                        required
+                                                    />
+                                                    {externalProjectSearchResults.length > 0 && (
+                                                        <div className="search-results">
+                                                            {externalProjectSearchResults.map((project, index) => (
+                                                                <div 
+                                                                    key={index} 
+                                                                    className="search-result-item"
+                                                                    onClick={() => selectExternalProject(project)}
+                                                                >
+                                                                    {project.project_id}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project Milestone
+                                                </label>
+                                                <select
+                                                    className="form-input"
+                                                    value={selectedProjectMilestoneExternal}
+                                                    onChange={(e) => setSelectedProjectMilestoneExternal(e.target.value)}
+                                                    required
+                                                >
+                                                    <option value="">Choose Project Milestone</option>
+                                                    <option value="Project Initiation Completed">Project Initiation Completed</option>
+                                                    <option value="Project Initiation Ongoing">Project Initiation Ongoing</option>
+                                                    <option value="Project Initiation Rejected">Project Initiation Rejected</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Start Date
+                                                </label>
+                                                <input
+                                                    className="form-input"
+                                                    type="date"
+                                                    value={newStartDateExternal}
+                                                    onChange={(e) => setNewStartDateExternal(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Est. End Date
+                                                </label>
+                                                <input
+                                                    className="form-input"
+                                                    type="date"
+                                                    value={newEndDateExternal}
+                                                    onChange={(e) => setNewEndDateExternal(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project Warranty ID
+                                                </label>
+                                                <div className="search-container">
+                                                    <input
+                                                        className="form-input"
+                                                        type="text"
+                                                        placeholder="Insert Warranty ID"
+                                                        value={newProjectWarrantyIDExternal}
+                                                        onChange={handleWarrantyIDChange}
+                                                        onFocus={() => fetchInitialWarranties()}
+                                                    />
+                                                    {warrantySearchResults.length > 0 && (
+                                                        <div className="search-results">
+                                                            {warrantySearchResults.map((warranty, index) => (
+                                                                <div 
+                                                                    key={index} 
+                                                                    className="search-result-item"
+                                                                    onClick={() => selectWarranty(warranty)}
+                                                                >
+                                                                    {warranty.id} - {warranty.coverage_years} years
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="form-column">
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project Issue
+                                                </label>
+                                                <textarea
+                                                    className="form-textarea"
+                                                    placeholder="Add Project Issue"
+                                                    value={newProjectIssueExternal}
+                                                    onChange={(e) => setNewProjectIssueExternal(e.target.value)}
+                                                    rows="10"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-                
-                <div className="form-column">
-                    <label className="form-label">
-                        <b>Project Issue</b>
-                    </label>
-                    <textarea
-                        className="form-textarea"
-                        placeholder="Add Project Issue:"
-                        value={newProjectIssueExternal}
-                        onChange={(e) => setNewProjectIssueExternal(e.target.value)}
-                        rows="10"
-                    />
-                </div>
-            </div>
-            
-            <div className="form-actions">
-                <button type="button" className="cancel-button" onClick={handleCancelAddProject}>
-                    <b>Cancel</b>
-                </button>
-                <button type="submit" className="save-button">
-                    <b>Save</b>
-                </button>
-            </div>
-        </form>
-    </>
-)}
-  
-  {selectedNavplan === "Internal" && (
-    <>
-        <form onSubmit={handleAddInternalProject} className="project-form">
-            <div className="form-row">
-                <div className="form-column">
-                    <label className="form-label">
-                        <b>Project ID*</b>
-                    </label>
-                    <div className="search-container">
-                        <input className="form-input"
-                            type="text"
-                            placeholder="Name"
-                            value={newProjectIDInternal}
-                            onChange={handleInternalProjectIDChange}
-                            onFocus={() => fetchInitialInternalProjects()}
-                            required
-                        />
-                        {internalProjectSearchResults.length > 0 && (
-                            <div className="search-results">
-                                {internalProjectSearchResults.map((project, index) => (
-                                    <div 
-                                        key={index} 
-                                        className="search-result-item"
-                                        onClick={() => selectInternalProject(project)}
-                                    >
-                                        {project.intrnl_project_id}
+                                    
+                                    <div className="form-actions">
+                                        <button type="button" className="cancel-btn" onClick={handleCancelAddProject}>
+                                            Cancel
+                                        </button>
+                                        <button type="submit" className="save-btn">
+                                            Save Project
+                                        </button>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                    
-                    <label className="form-label">
-                        <b>Project Request ID</b>
-                    </label>
-                    <div className="search-container">
-                        <input
-                            className="form-input"
-                            type="text"
-                            placeholder="Insert Project Request ID"
-                            value={newProjectRequestIDInternal}
-                            onChange={handleProjectRequestIDChange}
-                            onFocus={() => fetchInitialProjectRequests()}
-                        />
-                        {projectRequestSearchResults.length > 0 && (
-                            <div className="search-results">
-                                {projectRequestSearchResults.map((request, index) => (
-                                    <div 
-                                        key={index} 
-                                        className="search-result-item"
-                                        onClick={() => selectProjectRequest(request)}
-                                    >
-                                        {request.project_request_id} - {request.project_name}
+                                </form>
+                            )}
+                            
+                            {selectedNavplan === "Internal" && (
+                                <form onSubmit={handleAddInternalProject} className="project-form">
+                                    <div className="form-row">
+                                        <div className="form-column">
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project ID*
+                                                </label>
+                                                <div className="search-container">
+                                                    <input 
+                                                        className="form-input"
+                                                        type="text"
+                                                        placeholder="Project ID"
+                                                        value={newProjectIDInternal}
+                                                        onChange={handleInternalProjectIDChange}
+                                                        onFocus={() => fetchInitialInternalProjects()}
+                                                        required
+                                                    />
+                                                    {internalProjectSearchResults.length > 0 && (
+                                                        <div className="search-results">
+                                                            {internalProjectSearchResults.map((project, index) => (
+                                                                <div 
+                                                                    key={index} 
+                                                                    className="search-result-item"
+                                                                    onClick={() => selectInternalProject(project)}
+                                                                >
+                                                                    {project.intrnl_project_id}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project Request ID
+                                                </label>
+                                                <div className="search-container">
+                                                    <input
+                                                        className="form-input"
+                                                        type="text"
+                                                        placeholder="Insert Project Request ID"
+                                                        value={newProjectRequestIDInternal}
+                                                        onChange={handleProjectRequestIDChange}
+                                                        onFocus={() => fetchInitialProjectRequests()}
+                                                    />
+                                                    {projectRequestSearchResults.length > 0 && (
+                                                        <div className="search-results">
+                                                            {projectRequestSearchResults.map((request, index) => (
+                                                                <div 
+                                                                    key={index} 
+                                                                    className="search-result-item"
+                                                                    onClick={() => selectProjectRequest(request)}
+                                                                >
+                                                                    {request.project_request_id} - {request.project_name}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Start Date
+                                                </label>
+                                                <input
+                                                    className="form-input"
+                                                    type="date"
+                                                    value={newStartDateInternal}
+                                                    onChange={(e) => setNewStartDateInternal(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                            
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Est. End Date
+                                                </label>
+                                                <input
+                                                    className="form-input"
+                                                    type="date"
+                                                    value={newEndDateInternal}
+                                                    onChange={(e) => setNewEndDateInternal(e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="form-column">
+                                            <div className="form-group">
+                                                <label className="form-label">
+                                                    Project Issue
+                                                </label>
+                                                <textarea
+                                                    className="form-textarea"
+                                                    placeholder="Add Project Issue"
+                                                    value={newProjectIssueInternal}
+                                                    onChange={(e) => setNewProjectIssueInternal(e.target.value)}
+                                                    rows="10"
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
+                                    
+                                    <div className="form-actions">
+                                        <button type="button" className="cancel-btn" onClick={handleCancelAddProject}>
+                                            Cancel
+                                        </button>
+                                        <button type="submit" className="save-btn">
+                                            Save Project
+                                        </button>
+                                    </div>
+                                </form>
+                            )}
+                        </div>
                     </div>
-                    
-                    <label className="form-label">
-                        <b>Start Date</b>
-                    </label>
-                    <input
-                        className="form-input"
-                        type="date"
-                        value={newStartDateInternal}
-                        onChange={(e) => setNewStartDateInternal(e.target.value)}
-                        required
-                    />
-                    
-                    <label className="form-label">
-                        <b>Est. End Date</b>
-                    </label>
-                    <input
-                        className="form-input"
-                        type="date"
-                        value={newEndDateInternal}
-                        onChange={(e) => setNewEndDateInternal(e.target.value)}
-                        required
-                    />
-                </div>
-                
-                <div className="form-column">
-                    <label className="form-label">
-                        <b>Project Issue</b>
-                    </label>
-                    <textarea
-                        className="form-textarea"
-                        placeholder="Add Project Issue:"
-                        value={newProjectIssueInternal}
-                        onChange={(e) => setNewProjectIssueInternal(e.target.value)}
-                        rows="10"
-                    />
-                </div>
-            </div>
-            
-            <div className="form-actions">
-                <button type="button" className="cancel-button" onClick={handleCancelAddProject}>
-                    <b>Cancel</b>
-                </button>
-                <button type="submit" className="save-button">
-                    <b>Save</b>
-                </button>
-            </div>
-        </form>
-    </>
-)}
                 </div>
             )}
         </div>
-    );
-};
-  
+    );};
 export default BodyContent;

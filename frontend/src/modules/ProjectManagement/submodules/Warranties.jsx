@@ -270,185 +270,210 @@ const BodyContent = () => {
     }
   };
 
-  return (
-    <div className="body-content-container">
-      <div className="warrantymonitoring">
-        <b>Warranties</b>
-      </div>
-      
-      <div className="warranty-actions">
-        <button className="add-warranty" onClick={() => setShowAddForm(!showAddForm)}>
-          <b>{showAddForm ? "Cancel" : "Add Warranty"}</b>
-        </button>
-        <button className="delproj" onClick={handleDeleteWarranties}>
-          <b>Delete Selected</b>
-        </button>
-      </div>
-      
-      {error && <div className="error-message">{error}</div>}
-      
-      {showAddForm && (
-        <div className="add-warranty-form" ref={formRef}>
-          <h3>Add New Warranty</h3>
-          <form onSubmit={handleAddWarranty}>
-            <div className="form-group">
-              <label>Project ID:</label>
-              <div className="autocomplete-container" ref={suggestionRef}>
-                <input 
-                  type="text" 
-                  name="project_id" 
-                  value={newWarranty.project_id} 
-                  onChange={handleProjectInputChange}
-                  onFocus={handleFocus}
-                  onDrop={handleDrop}
-                  onDragOver={handleDragOver}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  className={`draggable-input ${isDragging ? 'drag-over' : ''}`}
-                  placeholder="Type or drag a project ID here"
-                  required 
-                />
-                <div className="input-tooltip">
-                  Type to search for projects or drag from below
+
+    return (
+      <div className="body-content-container">
+        <div className="header-section">
+          <h1 className="page-title">Warranty Management</h1>
+          <div className="action-buttons">
+            <button className="btn btn-primary" onClick={() => setShowAddForm(!showAddForm)}>
+              {showAddForm ? "Cancel" : "Add Warranty"}
+            </button>
+            <button className="btn btn-danger" onClick={handleDeleteWarranties}>
+              Delete Selected
+            </button>
+          </div>
+        </div>
+  
+        {error && <div className="alert alert-error">{error}</div>}
+        
+        {showAddForm && (
+          <div className="card form-card" ref={formRef}>
+            <div className="card-header">
+              <h3>Add New Warranty</h3>
+            </div>
+            <div className="card-body">
+              <form onSubmit={handleAddWarranty}>
+                <div className="form-group">
+                  <label>Project ID:</label>
+                  <div className="autocomplete-container" ref={suggestionRef}>
+                    <input 
+                      type="text" 
+                      name="project_id" 
+                      value={newWarranty.project_id} 
+                      onChange={handleProjectInputChange}
+                      onFocus={handleFocus}
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragEnter={handleDragEnter}
+                      onDragLeave={handleDragLeave}
+                      className={`form-input ${isDragging ? 'drag-over' : ''}`}
+                      placeholder="Type or drag a project ID here"
+                      required 
+                    />
+                    <div className="input-hint">
+                      Type to search for projects or drag from below
+                    </div>
+                    
+                    {isLoadingSuggestions && (
+                      <div className="loading-indicator">Loading projects...</div>
+                    )}
+                    
+                    {showSuggestions && projectSuggestions.length > 0 && (
+                      <ul className="suggestions-dropdown">
+                        {projectSuggestions.map((project, index) => (
+                          <li 
+                            key={index} 
+                            onClick={() => handleProjectSelect(project.project_id)}
+                            className="suggestion-item"
+                          >
+                            <strong>{project.project_id}</strong>
+                            {project.project_name && <span> - {project.project_name}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
                 
-                {isLoadingSuggestions && (
-                  <div className="suggestions-loading">Loading projects...</div>
-                )}
-                
-                {showSuggestions && projectSuggestions.length > 0 && (
-                  <ul className="suggestions-list">
-                    {projectSuggestions.map((project, index) => (
-                      <li 
-                        key={index} 
-                        onClick={() => handleProjectSelect(project.project_id)}
-                        className="suggestion-item"
-                      >
-                        <strong>{project.project_id}</strong>
-                        {project.project_name && <span> - {project.project_name}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Warranty Coverage (Years):</label>
-              <input 
-                type="number" 
-                name="warranty_coverage_yr" 
-                value={newWarranty.warranty_coverage_yr} 
-                onChange={handleInputChange} 
-                min="1"
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>Start Date:</label>
-              <input 
-                type="date" 
-                name="warranty_start_date" 
-                value={newWarranty.warranty_start_date} 
-                onChange={handleInputChange} 
-                required 
-              />
-            </div>
-            <div className="form-group">
-              <label>End Date:</label>
-              <input 
-                type="date" 
-                name="warranty_end_date" 
-                value={newWarranty.warranty_end_date} 
-                onChange={handleInputChange} 
-                required 
-              />
-            </div>
-            <button type="submit" className="submit-btn">Add Warranty</button>
-          </form>
-        </div>
-      )}
-      
-      {isLoading ? (
-        <div className="loading">Loading warranties...</div>
-      ) : (
-        <>
-          <div className="warrantytable">
-            <table className="warrantytable1">
-              <thead>
-                <tr>
-                  <th>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Warranty Coverage (Years):</label>
                     <input 
-                      type="checkbox" 
-                      onChange={handleSelectAll} 
-                      checked={selectedWarranties.length === warranties.length && warranties.length > 0}
+                      type="number" 
+                      name="warranty_coverage_yr" 
+                      value={newWarranty.warranty_coverage_yr} 
+                      onChange={handleInputChange} 
+                      min="1"
+                      className="form-input"
+                      required 
                     />
-                  </th>
-                  <th><b>Warranty ID</b></th>
-                  <th><b>Project ID</b></th>
-                  <th><b>Warranty Coverage Yr.</b></th>
-                  <th><b>Start Date</b></th>
-                  <th><b>End Date</b></th>
-                </tr>
-              </thead>
-              <tbody>
-                {warranties.length > 0 ? (
-                  warranties.map((warranty) => (
-                    <tr key={warranty.project_warranty_id}>
-                      <td>
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Start Date:</label>
+                    <input 
+                      type="date" 
+                      name="warranty_start_date" 
+                      value={newWarranty.warranty_start_date} 
+                      onChange={handleInputChange} 
+                      className="form-input"
+                      required 
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>End Date:</label>
+                    <input 
+                      type="date" 
+                      name="warranty_end_date" 
+                      value={newWarranty.warranty_end_date} 
+                      onChange={handleInputChange} 
+                      className="form-input"
+                      required 
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-submit">Add Warranty</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        
+        <div className="data-section">
+          {isLoading ? (
+            <div className="loading-state">
+              <div className="spinner"></div>
+              <p>Loading warranties...</p>
+            </div>
+          ) : (
+            <>
+              <div className="table-responsive">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th className="checkbox-cell">
                         <input 
                           type="checkbox" 
-                          checked={selectedWarranties.includes(warranty.project_warranty_id)} 
-                          onChange={() => handleCheckboxChange(warranty.project_warranty_id)} 
+                          onChange={handleSelectAll} 
+                          checked={selectedWarranties.length === warranties.length && warranties.length > 0}
                         />
-                      </td>
-                      <td><b>{warranty.project_warranty_id}</b></td>
-                      <td 
-                        draggable 
-                        onDragStart={(e) => handleDragStart(e, warranty.project_id)}
-                        className="draggable-cell"
-                        title="Drag this project ID to the form"
-                      >
-                        {warranty.project_id}
-                      </td>
-                      <td>{warranty.warranty_coverage_yr}</td>
-                      <td>{warranty.warranty_start_date}</td>
-                      <td>{warranty.warranty_end_date}</td>
+                      </th>
+                      <th>Warranty ID</th>
+                      <th>Project ID</th>
+                      <th>Coverage (Years)</th>
+                      <th>Start Date</th>
+                      <th>End Date</th>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="no-data">No warranties found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          
-          {(pagination.next || pagination.previous) && (
-            <div className="pagination-controls">
-              <button 
-                onClick={handlePreviousPage} 
-                disabled={!pagination.previous}
-                className="pagination-button"
-              >
-                Previous
-              </button>
-              <span className="pagination-info">
-                Showing {warranties.length} of {pagination.count} warranties
-              </span>
-              <button 
-                onClick={handleNextPage} 
-                disabled={!pagination.next}
-                className="pagination-button"
-              >
-                Next
-              </button>
-            </div>
+                  </thead>
+                  <tbody>
+                    {warranties.length > 0 ? (
+                      warranties.map((warranty) => (
+                        <tr key={warranty.project_warranty_id}>
+                          <td className="checkbox-cell">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedWarranties.includes(warranty.project_warranty_id)} 
+                              onChange={() => handleCheckboxChange(warranty.project_warranty_id)} 
+                            />
+                          </td>
+                          <td>{warranty.project_warranty_id}</td>
+                          <td 
+                            draggable 
+                            onDragStart={(e) => handleDragStart(e, warranty.project_id)}
+                            className="draggable-cell"
+                            title="Drag this project ID to the form"
+                          >
+                            {warranty.project_id}
+                          </td>
+                          <td>{warranty.warranty_coverage_yr}</td>
+                          <td>{new Date(warranty.warranty_start_date).toLocaleDateString()}</td>
+                          <td>{new Date(warranty.warranty_end_date).toLocaleDateString()}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="no-data">
+                          <div className="empty-state">
+                            <span className="icon">📋</span>
+                            <p>No warranties found</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {(pagination.next || pagination.previous) && (
+                <div className="pagination-controls">
+                  <button 
+                    onClick={handlePreviousPage} 
+                    disabled={!pagination.previous}
+                    className="btn btn-pagination"
+                  >
+                    Previous
+                  </button>
+                  <div className="pagination-info">
+                    Showing {warranties.length} of {pagination.count} warranties
+                  </div>
+                  <button 
+                    onClick={handleNextPage} 
+                    disabled={!pagination.next}
+                    className="btn btn-pagination"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
-        </>
-      )}
-    </div>
-  );
-};
-
-export default BodyContent;
+        </div>
+      </div>
+    );
+  };
+  
+  export default BodyContent;

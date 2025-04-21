@@ -298,254 +298,252 @@ const BodyContent = () => {
   
   const hasApiErrors = Object.values(apiErrors).some(val => val);
   
+  
   return (
     <div className="body-content-container">
       {error && (
         <div className="error-banner">
           <p>{error}</p>
-          <button onClick={() => setError(null)}>Dismiss</button>
+          <button className="dismiss-btn" onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
       
       {hasApiErrors && (
         <div className="warning-banner">
           <p>Some data could not be loaded. The form may have limited functionality.</p>
-          <button onClick={() => window.location.reload()}>Reload Page</button>
+          <button className="reload-btn" onClick={() => window.location.reload()}>Reload Page</button>
         </div>
       )}
       
       {showProjectForms ? (
-        <div className="project-forms-wrapper">
-          <button 
-            onClick={handleBackFromProjectForms} 
-            className="back-button"
-          >
-            <b>← Back to Report List</b>
+        <div className="project-forms-view">
+          <button onClick={handleBackFromProjectForms} className="back-button">
+            <span className="back-arrow">←</span> Back to Report List
           </button>
-          <ProjectForms />
+          <div className="project-forms-content">
+            <ProjectForms />
+          </div>
         </div>
       ) : showGenerateReports ? (
-        <div className="generate-reports-wrapper">
-          <button 
-            onClick={handleBackFromGenerateReports} 
-            className="back-button"
-          >
-            <b>← Back to Report List</b>
+        <div className="generate-reports-view">
+          <button onClick={handleBackFromGenerateReports} className="back-button">
+            <span className="back-arrow">←</span> Back to Report List
           </button>
-          <GenerateReports 
-            reportData={reportData}
-            reportTypes={reportTypes}
-            externalProjects={externalProjects}
-            internalProjects={internalProjects}
-          />
+          <div className="generate-reports-content">
+            <GenerateReports 
+              reportData={reportData}
+              reportTypes={reportTypes}
+              externalProjects={externalProjects}
+              internalProjects={internalProjects}
+            />
+          </div>
         </div>
       ) : (
-        <>
-
+        <div className="main-content">
           {currentForm === 1 && (
-            <form onSubmit={handleFirstSubmit}>
-              <h1 className="newreport">
-                <b>New Report</b>
-              </h1>
-              <h1 className="projectlist">Project Task List</h1>
+            <div className="form-container">
+              <div className="form-header">
+                <h1 className="form-title">New Report</h1>
+                <h2 className="form-subtitle">Project Task List</h2>
+              </div>
+              
+              <form onSubmit={handleFirstSubmit} className="report-form">
+                <div className="form-columns">
+                  {/* Left Column */}
+                  <div className="form-column left-column">
+                    <div className="form-group">
+                      <label className="form-label">
+                        Project ID<span className="required">*</span>
+                      </label>
+                      <select
+                        className="form-select"
+                        value={newProjectID}
+                        onChange={handleExternalProjectChange}
+                        disabled={loading || newInternalprojectid !== "" || apiErrors.externalProjects}
+                      >
+                        <option value="">Select Project ID</option>
+                        {externalProjects.map((project) => (
+                          <option key={project.project_id} value={project.project_id}>
+                            {project.project_id} {project.project_status ? `- ${project.project_status}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {apiErrors.externalProjects && (
+                        <div className="field-error">External projects could not be loaded</div>
+                      )}
+                    </div>
 
-              <label className="projectidrep">
-                <b>Project ID*</b>
-              </label>
-              <br />
-              <select
-                className="projectidrep2"
-                value={newProjectID}
-                onChange={handleExternalProjectChange}
-                disabled={loading || newInternalprojectid !== "" || apiErrors.externalProjects}
-              >
-                <option value="">Select Project ID</option>
-                {externalProjects.map((project) => (
-                  <option key={project.project_id} value={project.project_id}>
-                    {project.project_id} {project.project_status ? `- ${project.project_status}` : ''}
-                  </option>
-                ))}
-              </select>
-              {apiErrors.externalProjects && (
-                <div className="field-error">External projects could not be loaded</div>
-              )}
-              <br />
+                    <div className="form-group">
+                      <label className="form-label">Internal Project ID</label>
+                      <select
+                        className="form-select"
+                        value={newInternalprojectid}
+                        onChange={handleInternalProjectChange}
+                        disabled={loading || newProjectID !== "" || apiErrors.internalProjects}
+                      >
+                        <option value="">Select Internal Project ID</option>
+                        {internalProjects.map((project) => (
+                          <option key={project.intrnl_project_id} value={project.intrnl_project_id}>
+                            {project.intrnl_project_id} {project.intrnl_project_status ? `- ${project.intrnl_project_status}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {apiErrors.internalProjects && (
+                        <div className="field-error">Internal projects could not be loaded</div>
+                      )}
+                    </div>
 
-              <label className="internalprojid">
-                <b>Internal Project ID</b>
-              </label>
-              <br />
-              <select
-                className="internalprojid2"
-                value={newInternalprojectid}
-                onChange={handleInternalProjectChange}
-                disabled={loading || newProjectID !== "" || apiErrors.internalProjects}
-              >
-                <option value="">Select Internal Project ID</option>
-                {internalProjects.map((project) => (
-                  <option key={project.intrnl_project_id} value={project.intrnl_project_id}>
-                    {project.intrnl_project_id} {project.intrnl_project_status ? `- ${project.intrnl_project_status}` : ''}
-                  </option>
-                ))}
-              </select>
-              {apiErrors.internalProjects && (
-                <div className="field-error">Internal projects could not be loaded</div>
-              )}
-              <br />
+                    <div className="form-group">
+                      <label className="form-label">Report Type</label>
+                      <select
+                        name="Reporttype"
+                        className="form-select"
+                        value={selectedReporttype}
+                        onChange={(e) => setSelectedReporttype(e.target.value)}
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Choose Report Type</option>
+                        {reportTypes.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
 
-              <label className="reporttype">
-                <b>Report Type</b>
-              </label>
-              <br />
-              <select
-                name="Reporttype"
-                className="reporttype2"
-                value={selectedReporttype}
-                onChange={(e) => setSelectedReporttype(e.target.value)}
-                required
-                disabled={loading}
-              >
-                <option value="">Choose Report Type</option>
-                {reportTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              <br />
+                    <div className="form-group">
+                      <label className="form-label">Report Title</label>
+                      <input
+                        className="form-input"
+                        type="text"
+                        placeholder="Insert Title"
+                        value={newReporttitle}
+                        onChange={(e) => setNewReporttitle(e.target.value)}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
+                  </div>
 
-              <label className="reporttitle">
-                <b>Report Title</b>
-              </label>
-              <br />
-              <input
-                className="reporttitle2"
-                type="text"
-                placeholder="Insert Title"
-                value={newReporttitle}
-                onChange={(e) => setNewReporttitle(e.target.value)}
-                required
-                disabled={loading}
-              />
-              <br />
+                  {/* Right Column */}
+                  <div className="form-column right-column">
+                    <div className="form-group">
+                      <label className="form-label">Received From</label>
+                      <select
+                        name="Receivedfrom"
+                        className="form-select"
+                        value={selectedReceivedform}
+                        onChange={(e) => setSelectedReceievedform(e.target.value)}
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Choose Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
 
-              <label className="receivedform">
-                <b>Received From</b>
-              </label>
-              <br />
-              <select
-                name="Receivedfrom"
-                className="receivedfrom2"
-                value={selectedReceivedform}
-                onChange={(e) => setSelectedReceievedform(e.target.value)}
-                required
-                disabled={loading}
-              >
-                <option value="">Choose Department</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              <br />
+                    <div className="form-group">
+                      <label className="form-label">Date Created</label>
+                      <input
+                        className="form-input"
+                        type="date"
+                        placeholder="00/00/0000"
+                        value={newDatecreated}
+                        onChange={(e) => setNewDatecreated(e.target.value)}
+                        required
+                        disabled={loading}
+                      />
+                    </div>
 
-              <label className="datecreated">
-                <b>Date Created</b>
-              </label>
-              <br />
-              <input
-                className="datecreated2"
-                type="date"
-                placeholder="00/00/0000"
-                value={newDatecreated}
-                onChange={(e) => setNewDatecreated(e.target.value)}
-                required
-                disabled={loading}
-              />
-              <br />
+                    <div className="form-group">
+                      <label className="form-label">Assigned To:</label>
+                      <select
+                        name="Assigned to"
+                        className="form-select"
+                        value={selectedAssignedto}
+                        onChange={(e) => setSelectedAssignedto(e.target.value)}
+                        required
+                        disabled={loading}
+                      >
+                        <option value="">Choose Department</option>
+                        {departments.map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
 
-              <label className="assignedto">
-                <b>Assigned To:</b>
-              </label>
-              <br />
-              <select
-                name="Assigned to"
-                className="assignedto2"
-                value={selectedAssignedto}
-                onChange={(e) => setSelectedAssignedto(e.target.value)}
-                required
-                disabled={loading}
-              >
-                <option value="">Choose Department</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>{dept}</option>
-                ))}
-              </select>
-              <br />
+                <div className="form-group full-width">
+                  <label className="form-label">Description</label>
+                  <textarea
+                    className="form-textarea"
+                    placeholder="Add Description"
+                    value={newDescriptionreport}
+                    onChange={(e) => setNewDescriptionreport(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
 
-              <label className="descreport">
-                <b>Description</b>
-              </label>
-              <br />
-              <input
-                className="descreport2"
-                type="text"
-                placeholder="Add Description"
-                value={newDescriptionreport}
-                onChange={(e) => setNewDescriptionreport(e.target.value)}
-                required
-                disabled={loading}
-              />
-              <br />
-
-              <button type="submit" className="saverep" disabled={loading}>
-                <b>{loading ? "Saving..." : "Save"}</b>
-              </button>
-              <button type="button" className="editrep" disabled={loading}>
-                <b>Edit</b>
-              </button>
-              <button type="button" className="attachfile" disabled={loading}>
-                <b>Attach File</b>
-              </button>
-              <h1 className="attach2">
-                <b>Attachments</b>
-              </h1>
-            </form>
+                <div className="form-actions">
+                  <div className="attachment-section">
+                    <h3 className="attachment-label">Attachments</h3>
+                    <button type="button" className="action-btn attach-btn" disabled={loading}>
+                      Attach File
+                    </button>
+                  </div>
+                  <div className="form-buttons">
+                    <button type="button" className="action-btn edit-btn" disabled={loading}>
+                      Edit
+                    </button>
+                    <button type="submit" className="action-btn save-btn" disabled={loading}>
+                      {loading ? "Saving..." : "Save"}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           )}
 
           {showReportList && (
-            <>
-              <h1 className="reportmonitorlist">
-                <b>Report Monitoring List</b>
-              </h1>
-              <div className="report-actions">
-                <button onClick={handleBackClick} className="addreport" disabled={loading}>
-                  <b>Add Report</b>
-                </button>
-                <button 
-                  onClick={handleRemoveReports} 
-                  className="removereport" 
-                  disabled={selectedReports.length === 0 || loading}
-                >
-                  <b>{loading ? "Removing..." : "Remove Report"}</b>
-                </button>
-                <button 
-                  onClick={handleShowGenerateReports} 
-                  className="generatereport"
-                  disabled={loading}
-                >
-                  <b>Generate Reports</b>
-                </button>
-                <button 
-                onClick={handleShowProjectForms} 
-                className="projectforms"
-                disabled={loading}
-              >
-                <b>Project Forms</b>
-              </button>
+            <div className="report-list-container">
+              <div className="list-header">
+                <h1 className="list-title">Report Monitoring List</h1>
+                <div className="list-actions">
+                  <button onClick={handleBackClick} className="action-btn add-btn" disabled={loading}>
+                    Add Report
+                  </button>
+                  <button 
+                    onClick={handleRemoveReports} 
+                    className="action-btn remove-btn" 
+                    disabled={selectedReports.length === 0 || loading}
+                  >
+                    {loading ? "Removing..." : "Remove Report"}
+                  </button>
+                  <button 
+                    onClick={handleShowGenerateReports} 
+                    className="action-btn generate-btn"
+                    disabled={loading}
+                  >
+                    Generate Reports
+                  </button>
+                  <button 
+                    onClick={handleShowProjectForms} 
+                    className="action-btn project-forms-btn"
+                    disabled={loading}
+                  >
+                    Project Forms
+                  </button>
+                </div>
               </div>
-              <div className="replisttable1">
-                <table className="replist">
+
+              <div className="report-table-container">
+                <table className="report-table">
                   <thead>
                     <tr>
-                      <th>
+                      <th className="checkbox-cell">
                         <input 
                           type="checkbox" 
                           onChange={(e) => {
@@ -559,37 +557,21 @@ const BodyContent = () => {
                           disabled={loading || reportData.length === 0}
                         />
                       </th>
-                      <th>
-                        <b>Project ID</b>
-                      </th>
-                      <th>
-                        <b>Internal Project ID</b>
-                      </th>
-                      <th>
-                        <b>Report Type</b>
-                      </th>
-                      <th>
-                        <b>Report Title:</b>
-                      </th>
-                      <th>
-                        <b>Received From:</b>
-                      </th>
-                      <th>
-                        <b>Date Created</b>
-                      </th>
-                      <th>
-                        <b>Assigned to:</b>
-                      </th>
-                      <th>
-                        <b>Description</b>
-                      </th>
+                      <th>Project ID</th>
+                      <th>Internal Project ID</th>
+                      <th>Report Type</th>
+                      <th>Report Title:</th>
+                      <th>Received From:</th>
+                      <th>Date Created</th>
+                      <th>Assigned to:</th>
+                      <th>Description</th>
                     </tr>
                   </thead>
                   <tbody>
                     {reportData.length > 0 ? (
                       reportData.map((item, index) => (
                         <tr key={index} className={selectedReports.includes(index) ? "selected-row" : ""}>
-                          <td>
+                          <td className="checkbox-cell">
                             <input
                               type="checkbox"
                               checked={selectedReports.includes(index)}
@@ -597,21 +579,19 @@ const BodyContent = () => {
                               disabled={loading}
                             />
                           </td>
-                          <td>
-                            <b>{item.project_id}</b>
-                          </td>
-                          <td>{item.intrnl_project_id}</td>
-                          <td>{item.report_type}</td>
-                          <td>{item.report_title}</td>
-                          <td>{item.received_from}</td>
-                          <td>{item.date_created}</td>
-                          <td>{item.assigned_to}</td>
-                          <td>{item.description}</td>
+                          <td>{item.project_id || '-'}</td>
+                          <td>{item.intrnl_project_id || '-'}</td>
+                          <td>{item.report_type || '-'}</td>
+                          <td>{item.report_title || '-'}</td>
+                          <td>{item.received_from || '-'}</td>
+                          <td>{item.date_created || '-'}</td>
+                          <td>{item.assigned_to || '-'}</td>
+                          <td className="description-cell">{item.description || '-'}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="9" style={{ textAlign: "center" }}>
+                        <td colSpan="9" className="no-data-message">
                           {apiErrors.reports ? "Could not load reports" : "No reports found"}
                         </td>
                       </tr>
@@ -619,10 +599,11 @@ const BodyContent = () => {
                   </tbody>
                 </table>
               </div>
+
               <div className="selection-info">
                 <p>{selectedReports.length} of {reportData.length} reports selected</p>
               </div>
-            </>
+            </div>
           )}
 
           {!showReportList && currentForm !== 1 && (
@@ -630,13 +611,13 @@ const BodyContent = () => {
               <button 
                 onClick={() => setShowReportList(true)} 
                 disabled={loading}
-                className="view-reports-btn"
+                className="action-btn view-reports-btn"
               >
                 View Report List
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

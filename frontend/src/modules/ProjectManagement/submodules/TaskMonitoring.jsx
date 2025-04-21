@@ -241,387 +241,216 @@ const TaskMonitoring = () => {
     }));
   };
 
-  return (
-    <div className="body-content-container">
-      {loading && <div className="loading-spinner">Loading...</div>}
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="planningnav">
-        <button
-          className={`nav-button ${
-            selectedNavtask === "Internal Task" ? "selected1" : ""
-          }`}
-          onClick={() => handleNavClick("Internal Task")}
-        >
-          <b>Internal</b>
-        </button>
-
-        <button
-          className={`nav-button ${
-            selectedNavtask === "External Task" ? "selected1" : ""
-          }`}
-          onClick={() => handleNavClick("External Task")}
-        >
-          <b>External</b>
-        </button>
+  
+    return (
+      <div className="task-monitoring-container">
+        <div className="task-nav-container">
+          <button
+            className={`task-nav-button ${selectedNavtask === "Internal Task" ? "active" : ""}`}
+            onClick={() => handleNavClick("Internal Task")}
+          >
+            Internal Tasks
+          </button>
+          <button
+            className={`task-nav-button ${selectedNavtask === "External Task" ? "active" : ""}`}
+            onClick={() => handleNavClick("External Task")}
+          >
+            External Tasks
+          </button>
+        </div>
+  
+        {loading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner">Loading...</div>
+          </div>
+        )}
+  
+        {error && (
+          <div className="error-alert">
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>&times;</button>
+          </div>
+        )}
+  
+        {!showTasklist ? (
+          <div className="task-form-container">
+            <h2 className="form-title">New Project Task</h2>
+            
+            <form onSubmit={selectedNavtask === "External Task" ? handleFirstSubmitTask : handleSecondSubmitTask}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label htmlFor="projectID">Project ID*</label>
+                  <select
+                    id="projectID"
+                    value={newProjectID}
+                    onChange={(e) => setNewProjectID(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Project ID</option>
+                    {(selectedNavtask === "External Task" ? externalProjects : internalProjects).map((project) => (
+                      <option 
+                        key={project.project_id || project.intrnl_project_id} 
+                        value={project.project_id || project.intrnl_project_id}
+                      >
+                        {project.project_id || project.intrnl_project_id} 
+                        {project.project_name ? ` - ${project.project_name}` : 
+                         project.intrnl_project_name ? ` - ${project.intrnl_project_name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+  
+                <div className="form-group">
+                  <label htmlFor="laborID">Labor ID*</label>
+                  <select
+                    id="laborID"
+                    value={newLaborid}
+                    onChange={(e) => setNewLaborid(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Labor ID</option>
+                    {(selectedNavtask === "External Task" ? externalLabor : internalLabor).map((labor) => (
+                      <option 
+                        key={labor.project_labor_id || labor.intrnl_project_labor_id} 
+                        value={labor.project_labor_id || labor.intrnl_project_labor_id}
+                      >
+                        {labor.project_labor_id || labor.intrnl_project_labor_id} 
+                        {labor.employee_id ? ` - ${labor.employee_id}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+  
+                <div className="form-group">
+                  <label htmlFor="taskStatus">Task Status</label>
+                  <select
+                    id="taskStatus"
+                    value={selectedTaskstatus}
+                    onChange={(e) => setSelectedTaskstatus(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="pending">Pending</option>
+                    <option value="canceled">Canceled</option>
+                  </select>
+                </div>
+  
+                <div className="form-group">
+                  <label htmlFor="taskDeadline">Task Deadline</label>
+                  <input
+                    id="taskDeadline"
+                    type="date"
+                    value={newTaskdeadline}
+                    onChange={(e) => setNewTaskdeadline(e.target.value)}
+                    required
+                  />
+                </div>
+  
+                <div className="form-group full-width">
+                  <label htmlFor="taskDescription">Task Description</label>
+                  <textarea
+                    id="taskDescription"
+                    placeholder="Enter task description..."
+                    value={newTaskDescription}
+                    onChange={(e) => setNewTaskDescription(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+  
+              <div className="form-actions">
+                <button 
+                  type="button" 
+                  className="secondary-button"
+                  onClick={() => setShowTasklist(true)}
+                >
+                  View Tasks
+                </button>
+                <button 
+                  type="submit" 
+                  className="primary-button"
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Save Task"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="task-list-container">
+            <div className="task-list-header">
+              <h2>Project Task List</h2>
+              <div className="list-actions">
+                <button 
+                  onClick={handleBackClick} 
+                  className="secondary-button"
+                >
+                  Add New Task
+                </button>
+                <button 
+                  onClick={handleRemoveReports} 
+                  className="danger-button"
+                  disabled={selectedReports.length === 0 || loading}
+                >
+                  {loading ? "Removing..." : "Remove Selected"}
+                </button>
+              </div>
+            </div>
+  
+            <div className="task-table-container">
+              <table className="task-table">
+                <thead>
+                  <tr>
+                    <th className="select-col"></th>
+                    <th>Task ID</th>
+                    <th>Project ID</th>
+                    <th>Labor ID</th>
+                    <th>Status</th>
+                    <th>Deadline</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedNavtask === "External Task" 
+                    ? mapExternalTasksToDisplay(taskdata) 
+                    : mapInternalTasksToDisplay(taskdata2)).map((item, index) => (
+                    <tr key={index}>
+                      <td className="select-col">
+                        <input
+                          type="checkbox"
+                          checked={selectedReports.includes(index)}
+                          onChange={() => handleCheckboxChange(index)}
+                        />
+                      </td>
+                      <td><strong>{item.Taskid}</strong></td>
+                      <td>{item.ProjectID}</td>
+                      <td>{item.Laborid}</td>
+                      <td>
+                        <span className={`status-badge ${item.TaskStatus.replace('_', '-')}`}>
+                          {item.TaskStatus.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td>{item.Taskdeadline}</td>
+                      <td className="description-cell">{item.TaskDescription}</td>
+                    </tr>
+                  ))}
+                  {((selectedNavtask === "External Task" && taskdata.length === 0) || 
+                    (selectedNavtask === "Internal Task" && taskdata2.length === 0)) && (
+                    <tr>
+                      <td colSpan="7" className="no-tasks">
+                        No tasks found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
-
-      {selectedNavtask === "External Task" && currentForm === 1 && (
-        <form onSubmit={handleFirstSubmitTask}>
-          <h1 className="projecttask">
-            <b>New Project Task</b>
-          </h1>
-          <label className="projectidtask">
-            <b>Project ID*</b>
-          </label>
-          <br />
-          <select
-            className="projectidtask2"
-            value={newProjectID}
-            onChange={(e) => setNewProjectID(e.target.value)}
-            required
-          >
-            <option value="">Select Project ID</option>
-            {externalProjects.map((project) => (
-              <option key={project.project_id} value={project.project_id}>
-                {project.project_id} {project.project_name ? `- ${project.project_name}` : ''}
-              </option>
-            ))}
-          </select>
-          <br />
-
-          <label className="taskdescrip">
-            <b>Task Description</b>
-          </label>
-          <br />
-
-          <textarea
-            className="taskdescrip2"
-            placeholder="Add Description"
-            value={newTaskDescription}
-            onChange={(e) => setNewTaskDescription(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="taskstatus">
-            <b>Task Status</b>
-          </label>
-          <br />
-          <select
-            name="Reporttype"
-            className="taskstatus2"
-            value={selectedTaskstatus}
-            onChange={(e) => setSelectedTaskstatus(e.target.value)}
-            required
-          >
-            <option value="">Status</option>
-            <option value="completed">Completed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="pending">Pending</option>
-            <option value="canceled">Canceled</option>
-          </select>
-          <br />
-
-          <label className="taskdeadline">
-            <b>Task Deadline</b>
-          </label>
-          <br />
-
-          <input
-            className="taskdeadline2"
-            type="date"
-            placeholder="00/00/0000"
-            value={newTaskdeadline}
-            onChange={(e) => setNewTaskdeadline(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="laborid">
-            <b>Labor ID*</b>
-          </label>
-          <br />
-
-          <select
-            className="laborid2"
-            value={newLaborid}
-            onChange={(e) => setNewLaborid(e.target.value)}
-            required
-          >
-            <option value="">Select Labor ID</option>
-            {externalLabor.map((labor) => (
-              <option key={labor.project_labor_id} value={labor.project_labor_id}>
-                {labor.project_labor_id} {labor.employee_id ? `- ${labor.employee_id}` : ''}
-              </option>
-            ))}
-          </select>
-          <br />
-
-          <h1 className="projecttasklist">Project Task List</h1>
-
-          <button type="submit" className="savetask" disabled={loading}>
-            <b>{loading ? "Saving..." : "Save"}</b>
-          </button>
-          <button type="button" className="edittask" onClick={() => setShowTasklist(true)}>
-            <b>View Tasks</b>
-          </button>
-        </form>
-      )}
-
-      {selectedNavtask === "Internal Task" && currentForm === 1 && (
-        <form onSubmit={handleSecondSubmitTask}>
-          <h1 className="projecttask">
-            <b>New Project Task</b>
-          </h1>
-          <label className="projectidtask">
-            <b>Project ID*</b>
-          </label>
-          <br />
-          <select
-            className="projectidtask2"
-            value={newProjectID}
-            onChange={(e) => setNewProjectID(e.target.value)}
-            required
-          >
-            <option value="">Select Project ID</option>
-            {internalProjects.map((project) => (
-              <option key={project.intrnl_project_id} value={project.intrnl_project_id}>
-                {project.intrnl_project_id} {project.intrnl_project_name ? `- ${project.intrnl_project_name}` : ''}
-              </option>
-            ))}
-          </select>
-          <br />
-
-          <label className="taskdescrip">
-            <b>Task Description</b>
-          </label>
-          <br />
-
-          <textarea
-            className="taskdescrip2"
-            placeholder="Add Description"
-            value={newTaskDescription}
-            onChange={(e) => setNewTaskDescription(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="taskstatus">
-            <b>Task Status</b>
-          </label>
-          <br />
-          <select
-            name="Reporttype"
-            className="taskstatus2"
-            value={selectedTaskstatus}
-            onChange={(e) => setSelectedTaskstatus(e.target.value)}
-            required
-          >
-            <option value="">Status</option>
-            <option value="completed">Completed</option>
-            <option value="in_progress">In Progress</option>
-            <option value="pending">Pending</option>
-            <option value="canceled">Canceled</option>
-          </select>
-          <br />
-
-          <label className="taskdeadline">
-            <b>Task Deadline</b>
-          </label>
-          <br />
-
-          <input
-            className="taskdeadline2"
-            type="date"
-            placeholder="00/00/0000"
-            value={newTaskdeadline}
-            onChange={(e) => setNewTaskdeadline(e.target.value)}
-            required
-          />
-          <br />
-
-          <label className="laborid">
-            <b>Labor ID*</b>
-          </label>
-          <br />
-
-          <select
-            className="laborid2"
-            value={newLaborid}
-            onChange={(e) => setNewLaborid(e.target.value)}
-            required
-          >
-            <option value="">Select Labor ID</option>
-            {internalLabor.map((labor) => (
-              <option key={labor.intrnl_project_labor_id} value={labor.intrnl_project_labor_id}>
-                {labor.intrnl_project_labor_id} {labor.employee_id ? `- ${labor.employee_id}` : ''}
-              </option>
-            ))}
-          </select>
-          <br />
-
-          <h1 className="projecttasklist">Project Task List</h1>
-          <button type="submit" className="savetask" disabled={loading}>
-            <b>{loading ? "Saving..." : "Save"}</b>
-          </button>
-          <button type="button" className="edittask" onClick={() => setShowTasklist(true)}>
-            <b>View Tasks</b>
-          </button>
-        </form>
-      )}
-
-      {selectedNavtask === "External Task" && showTasklist && (
-        <>
-          <h1 className="reportmonitorlist">
-            <b>Project List</b>
-          </h1>
-          <button onClick={handleBackClick} className="addreport">
-            <b>Add Task</b>
-          </button>
-          <button 
-            onClick={handleRemoveReports} 
-            className="removereport" 
-            disabled={selectedReports.length === 0 || loading}
-          >
-            <b>{loading ? "Removing..." : "Remove Task"}</b>
-          </button>
-          <div className="replisttable1">
-            <table className="replist">
-              <thead>
-                <tr>
-                  <th>
-                    <input type="checkbox" disabled />
-                  </th>
-                  <th>
-                    <b>TaskID</b>
-                  </th>
-                  <th>
-                    <b>Project ID</b>
-                  </th>
-                  <th>
-                    <b>Labor ID</b>
-                  </th>
-                  <th>
-                    <b>Status</b>
-                  </th>
-                  <th>
-                    <b>Deadline</b>
-                  </th>
-                  <th>
-                    <b>Description</b>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {mapExternalTasksToDisplay(taskdata).map((item, index) => (
-                  <tr key={index}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedReports.includes(index)}
-                        onChange={() => handleCheckboxChange(index)}
-                      />
-                    </td>
-                    <td>
-                      <b>{item.Taskid}</b>
-                    </td>
-                    <td>{item.ProjectID}</td>
-                    <td>{item.Laborid}</td>
-                    <td>{item.TaskStatus}</td>
-                    <td>{item.Taskdeadline}</td>
-                    <td>{item.TaskDescription}</td>
-                  </tr>
-                ))}
-                {taskdata.length === 0 && (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: "center" }}>
-                      No tasks found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {selectedNavtask === "Internal Task" && showTasklist && (
-        <>
-          <h1 className="reportmonitorlist">
-            <b>Project List</b>
-          </h1>
-          <button onClick={handleBackClick} className="addreport">
-            <b>Add Task</b>
-          </button>
-          <button 
-            onClick={handleRemoveReports} 
-            className="removereport"
-            disabled={selectedReports.length === 0 || loading}
-          >
-            <b>{loading ? "Removing..." : "Remove Task"}</b>
-          </button>
-          <div className="replisttable1">
-            <table className="replist">
-              <thead>
-                <tr>
-                  <th>
-                    <input type="checkbox" disabled />
-                  </th>
-                  <th>
-                    <b>TaskID</b>
-                  </th>
-                  <th>
-                    <b>Project ID</b>
-                  </th>
-                  <th>
-                    <b>Labor ID</b>
-                  </th>
-                  <th>
-                    <b>Status</b>
-                  </th>
-                  <th>
-                    <b>Deadline</b>
-                  </th>
-                  <th>
-                    <b>Description</b>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {mapInternalTasksToDisplay(taskdata2).map((item, index) => (
-                  <tr key={index}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedReports.includes(index)}
-                        onChange={() => handleCheckboxChange(index)}
-                      />
-                    </td>
-                    <td>
-                      <b>{item.Taskid}</b> 
-                    </td>
-                    <td>{item.ProjectID}</td> 
-                    <td>{item.Laborid}</td> 
-                    <td>{item.TaskStatus}</td> 
-                    <td>{item.Taskdeadline}</td> 
-                    <td>{item.TaskDescription}</td> 
-                  </tr>
-                ))}
-                {taskdata2.length === 0 && (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: "center" }}>
-                      No tasks found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
-
-export default TaskMonitoring;
+    );
+  };
+  
+  export default TaskMonitoring;
