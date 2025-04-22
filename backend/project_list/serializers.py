@@ -34,6 +34,13 @@ class InternalProjectRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = InternalProjectRequest
         fields = '__all__'
+    
+    def to_representation(self, instance):
+        """Ensure dept_id is included in the serialized data"""
+        data = super().to_representation(instance)
+        # Explicitly include dept_id
+        data['dept_id'] = str(instance.dept_id) if instance.dept_id else 'N/A'
+        return data
 
 class InternalProjectDetailsSerializer(serializers.ModelSerializer):
     class Meta:

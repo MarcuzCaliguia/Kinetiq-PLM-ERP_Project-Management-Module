@@ -18,4 +18,5 @@ router.register(r'internal-details', InternalProjectDetailsViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+
 ]

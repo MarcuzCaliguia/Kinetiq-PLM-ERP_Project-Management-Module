@@ -37,6 +37,11 @@ const extractData = (response) => {
   return response.data;
 };
 
+const getInternalProjectsWithDeptId = () => {
+  return axios.get('/api/internal-project-requests/with_dept_id/');
+};
+
+
 
 const listService = {
   

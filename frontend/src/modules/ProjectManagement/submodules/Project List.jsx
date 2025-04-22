@@ -8,44 +8,35 @@ const BodyContent = () => {
   const [selectedRequests, setSelectedRequests] = useState([]);
   const [showProjectRequestList, setShowProjectRequestList] = useState(true);
 
-  
   const [externalRequests, setExternalRequests] = useState([]);
   const [internalRequests, setInternalRequests] = useState([]);
   const [internalDetails, setInternalDetails] = useState([]);
   const [externalDetails, setExternalDetails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  
+
   const [loadingExternal, setLoadingExternal] = useState(true);
   const [loadingInternal, setLoadingInternal] = useState(true);
   const [loadingInternalDetails, setLoadingInternalDetails] = useState(false);
   const [loadingExternalDetails, setLoadingExternalDetails] = useState(false);
 
-  
   useEffect(() => {
     const fetchData = async () => {
-      console.log("Fetching initial data...");
       setLoading(true);
-      
+
       try {
-        
         setLoadingExternal(true);
         const externalRes = await listService.getExternalProjects();
-        console.log('External projects response:', externalRes);
         const externalData = externalRes.data;
         setExternalRequests(externalData);
         setLoadingExternal(false);
-        
-        
+
         setLoadingInternal(true);
         const internalRes = await listService.getInternalProjects();
-        console.log('Internal projects response:', internalRes);
         const internalData = internalRes.data;
         setInternalRequests(internalData);
         setLoadingInternal(false);
       } catch (err) {
-        console.error('Error loading data:', err);
         setError('Failed to load data. Please try again later.');
       } finally {
         setLoading(false);
@@ -55,7 +46,6 @@ const BodyContent = () => {
     fetchData();
   }, []);
 
-  
   useEffect(() => {
     const loadDetailsData = async () => {
       if (!showProjectRequestList) {
@@ -63,10 +53,8 @@ const BodyContent = () => {
           setLoadingInternalDetails(true);
           try {
             const internalDetailedRes = await listService.getInternalProjectsDetailed();
-            console.log('Internal details response:', internalDetailedRes);
             setInternalDetails(internalDetailedRes.data);
           } catch (err) {
-            console.error('Error loading internal details:', err);
             setError('Failed to load internal details. Please try again.');
           } finally {
             setLoadingInternalDetails(false);
@@ -75,10 +63,8 @@ const BodyContent = () => {
           setLoadingExternalDetails(true);
           try {
             const externalDetailedRes = await listService.getExternalProjectsDetailed();
-            console.log('External details response:', externalDetailedRes);
             setExternalDetails(externalDetailedRes.data);
           } catch (err) {
-            console.error('Error loading external details:', err);
             setError('Failed to load external details. Please try again.');
           } finally {
             setLoadingExternalDetails(false);
@@ -86,11 +72,10 @@ const BodyContent = () => {
         }
       }
     };
-    
+
     loadDetailsData();
   }, [selectedNavdetails, showProjectRequestList]);
 
-  
   const handleNavClick = (nav) => {
     setSelectedNav(nav);
     setSelectedRequests([]);
@@ -108,13 +93,10 @@ const BodyContent = () => {
     setShowProjectRequestList(false);
   };
 
-  
   const handleFilter = () => {
-    
-    console.log("Filter functionality will be implemented here");
+    // Placeholder for filter functionality
   };
 
-  
   if (loading) {
     return (
       <div className="body-content-container">
@@ -138,13 +120,13 @@ const BodyContent = () => {
           </button>
         </div>
       )}
-      
+
       <div className="content-wrapper">
         {showProjectRequestList ? (
           <>
             <div className="header-section">
               <h1 className="page-title">Project Request</h1>
-              
+
               <div className="status-indicators">
                 <span className="status-indicator approved">
                   <div className="status-dot"></div>
@@ -159,7 +141,7 @@ const BodyContent = () => {
                   <span>Ongoing</span>
                 </span>
               </div>
-              
+
               <div className="action-buttons">
                 <button className="btn btn-filter" onClick={handleFilter}>
                   <i className="filter-icon"></i>
@@ -188,47 +170,47 @@ const BodyContent = () => {
             </div>
 
             <div className="table-container">
-              {selectedNav === "Internal Request" && (
-                <div className="data-table-wrapper">
-                  {loadingInternal ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading internal request data...</p>
-                    </div>
-                  ) : (
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>Project ID</th>
-                          <th>Approval ID</th>
-                          <th>Project Budget Approval</th>
-                          <th>Project Budget Request</th>
-                          <th>Project Budget Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {internalRequests.length > 0 ? (
-                          internalRequests.map((item, index) => (
-                            <tr key={index}>
-                              <td>{item.intrnl_project_id || item.project_id}</td>
-                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
-                              <td>{item.project_budget_approval || 'N/A'}</td>
-                              <td>{item.project_budget_request || 'N/A'}</td>
-                              <td>{item.project_budget_description || 'N/A'}</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="5" className="no-data">
-                              No internal request data available
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
+            {selectedNav === "Internal Request" && (
+  <div className="data-table-wrapper">
+    {loadingInternal ? (
+      <div className="loading-message">
+        <div className="spinner"></div>
+        <p>Loading internal request data...</p>
+      </div>
+    ) : (
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Project ID</th>
+            <th>Project Name</th>
+            <th>Project Budget Approval</th>
+            <th>Project Budget Request</th>
+            <th>Project Budget Description</th>
+          </tr>
+        </thead>
+        <tbody>
+          {internalRequests.length > 0 ? (
+            internalRequests.map((item, index) => (
+              <tr key={index}>
+                <td>{item.project_request_id}</td>
+                <td>{item.project_name || 'N/A'}</td>
+                <td>{item.project_budget_approval || 'N/A'}</td>
+                <td>{typeof item.project_budget_request === 'number' ? item.project_budget_request : 'N/A'}</td>
+                <td>{item.project_budget_description || 'N/A'}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan="5" className="no-data">
+                No internal request data available
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    )}
+  </div>
+)}
 
               {selectedNav === "External Request" && (
                 <div className="data-table-wrapper">
@@ -243,6 +225,7 @@ const BodyContent = () => {
                         <tr>
                           <th>ExtProject ID</th>
                           <th>Project Request ID</th>
+                          <th>Project Name</th>
                           <th>Project Status</th>
                           <th>Approval ID</th>
                           <th>Project Budget Approval</th>
@@ -255,19 +238,20 @@ const BodyContent = () => {
                             <tr key={index}>
                               <td>{item.project_id}</td>
                               <td>{item.ext_project_request_id}</td>
+                              <td>{item.ext_project_name || 'N/A'}</td>
                               <td>
                                 <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
                                   {item.project_status || 'Pending'}
                                 </span>
                               </td>
-                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
+                              <td>{item.approval_id || 'N/A'}</td>
                               <td>{item.project_budget_approval || 'N/A'}</td>
                               <td>{item.sales_order_id || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="6" className="no-data">
+                            <td colSpan="7" className="no-data">
                               No external request data available
                             </td>
                           </tr>
@@ -320,7 +304,6 @@ const BodyContent = () => {
                           <th>Project Request ID</th>
                           <th>Project Name</th>
                           <th>Project Status</th>
-                          <th>Approval ID</th>
                           <th>Department ID</th>
                           <th>Budget Request</th>
                           <th>Budget Description</th>
@@ -341,18 +324,17 @@ const BodyContent = () => {
                                   {item.intrnl_project_status || 'Pending'}
                                 </span>
                               </td>
-                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
                               <td>{item.project_request?.dept_id || 'N/A'}</td>
                               <td>{item.project_request?.project_budget_request || 'N/A'}</td>
                               <td>{item.project_request?.project_budget_description || 'N/A'}</td>
                               <td>{item.project_request?.project_description || 'N/A'}</td>
-                              <td>{item.project_request?.project_budget_request || 'N/A'}</td>
-                              <td>{item.project_request?.project_budget_description || 'N/A'}</td>
+                              <td>{item.project_budget_request || 'N/A'}</td>
+                              <td>{item.project_budget_description || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="11" className="no-data">
+                            <td colSpan="10" className="no-data">
                               No internal details available
                             </td>
                           </tr>
@@ -393,7 +375,7 @@ const BodyContent = () => {
                               <td>{item.project_id}</td>
                               <td>{item.ext_project_request?.ext_project_name || 'N/A'}</td>
                               <td>{item.ext_project_request?.ext_project_description || 'N/A'}</td>
-                              <td>{item.budget_approvals_id || item.ext_project_request?.approval_id || 'N/A'}</td>
+                              <td>{item.approval_id || item.ext_project_request?.approval_id || 'N/A'}</td>
                               <td>{item.ext_project_request?.item_id || 'N/A'}</td>
                               <td>
                                 <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
