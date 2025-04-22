@@ -116,3 +116,23 @@ class InternalProjectDetails(models.Model):
     class Meta:
         db_table = 'internal_project_details'
         managed = False
+        
+class ExternalProjectCostManagement(models.Model):
+    project_resources_id = models.CharField(primary_key=True, max_length=255)
+    project = models.ForeignKey('ExternalProjectDetails', models.DO_NOTHING, blank=True, null=True)
+    bom_id = models.CharField(max_length=255, blank=True, null=True)
+    budget_approvals_id = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'external_project_cost_management'
+        
+class InternalProjectCostManagement(models.Model):
+    intrnl_project_resources_id = models.CharField(primary_key=True, max_length=255)
+    intrnl_project = models.ForeignKey('InternalProjectDetails', models.DO_NOTHING, blank=True, null=True)
+    bom_id = models.CharField(max_length=255, blank=True, null=True)
+    budget_approvals_id = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'internal_project_cost_management'

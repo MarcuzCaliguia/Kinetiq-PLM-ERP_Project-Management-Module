@@ -8,123 +8,78 @@ const BodyContent = () => {
   const [selectedRequests, setSelectedRequests] = useState([]);
   const [showProjectRequestList, setShowProjectRequestList] = useState(true);
 
-  // State for data
+  
   const [externalRequests, setExternalRequests] = useState([]);
-  const [internalLabor, setInternalLabor] = useState([]);
+  const [internalRequests, setInternalRequests] = useState([]);
   const [internalDetails, setInternalDetails] = useState([]);
   const [externalDetails, setExternalDetails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Add loading state for individual data types
+  
   const [loadingExternal, setLoadingExternal] = useState(true);
-  const [loadingLabor, setLoadingLabor] = useState(true);
-  const [loadingInternalDetails, setLoadingInternalDetails] = useState(true);
-  const [loadingExternalDetails, setLoadingExternalDetails] = useState(true);
+  const [loadingInternal, setLoadingInternal] = useState(true);
+  const [loadingInternalDetails, setLoadingInternalDetails] = useState(false);
+  const [loadingExternalDetails, setLoadingExternalDetails] = useState(false);
 
-  // Fetch data from API
+  
   useEffect(() => {
     const fetchData = async () => {
+      console.log("Fetching initial data...");
       setLoading(true);
-      setError(null);
       
-      // Fetch external projects
-      setLoadingExternal(true);
       try {
+        
+        setLoadingExternal(true);
         const externalRes = await listService.getExternalProjects();
-        // Handle both array and paginated responses
-        const externalData = externalRes.data.results || externalRes.data;
-        console.log('External projects data:', externalData);
+        console.log('External projects response:', externalRes);
+        const externalData = externalRes.data;
         setExternalRequests(externalData);
-      } catch (err) {
-        console.error('Error loading external projects:', err);
-        setError('Failed to load some data. Please try again later.');
-      } finally {
         setLoadingExternal(false);
-      }
-      
-      // Fetch external labor
-      setLoadingLabor(true);
-      try {
-        const laborRes = await listService.getExternalLabor();
-        // Handle both array and paginated responses
-        const laborData = laborRes.data.results || laborRes.data;
-        console.log('External labor data:', laborData);
-        setInternalLabor(laborData);
+        
+        
+        setLoadingInternal(true);
+        const internalRes = await listService.getInternalProjects();
+        console.log('Internal projects response:', internalRes);
+        const internalData = internalRes.data;
+        setInternalRequests(internalData);
+        setLoadingInternal(false);
       } catch (err) {
-        console.error('Error loading external labor:', err);
-        if (!error) setError('Failed to load some data. Please try again later.');
+        console.error('Error loading data:', err);
+        setError('Failed to load data. Please try again later.');
       } finally {
-        setLoadingLabor(false);
+        setLoading(false);
       }
-      
-      // Fetch internal details only when needed
-      if (selectedNavdetails === "Internal Details" || !showProjectRequestList) {
-        setLoadingInternalDetails(true);
-        try {
-          const internalDetailedRes = await listService.getInternalProjectsDetailed();
-          setInternalDetails(internalDetailedRes.data);
-        } catch (err) {
-          console.error('Error loading internal details:', err);
-          if (!error) setError('Failed to load some data. Please try again later.');
-        } finally {
-          setLoadingInternalDetails(false);
-        }
-      }
-      
-      // Fetch external details only when needed
-      if (selectedNavdetails === "External Details" || !showProjectRequestList) {
-        setLoadingExternalDetails(true);
-        try {
-          const externalDetailedRes = await listService.getExternalProjectsDetailed();
-          setExternalDetails(externalDetailedRes.data);
-        } catch (err) {
-          console.error('Error loading external details:', err);
-          if (!error) setError('Failed to load some data. Please try again later.');
-        } finally {
-          setLoadingExternalDetails(false);
-        }
-      }
-      
-      setLoading(false);
     };
 
     fetchData();
-    
-    // Safety timeout
-    const timer = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-        if (!error) setError('Request timed out. Please try again.');
-      }
-    }, 60000);
-    
-    return () => clearTimeout(timer);
-  }, [selectedNavdetails, showProjectRequestList]);
+  }, []);
 
-  // Load details data when switching tabs
+  
   useEffect(() => {
     const loadDetailsData = async () => {
       if (!showProjectRequestList) {
-        if (selectedNavdetails === "Internal Details" && internalDetails.length === 0 && !loadingInternalDetails) {
+        if (selectedNavdetails === "Internal Details" && internalDetails.length === 0) {
           setLoadingInternalDetails(true);
           try {
             const internalDetailedRes = await listService.getInternalProjectsDetailed();
+            console.log('Internal details response:', internalDetailedRes);
             setInternalDetails(internalDetailedRes.data);
           } catch (err) {
             console.error('Error loading internal details:', err);
-            if (!error) setError('Failed to load internal details. Please try again.');
+            setError('Failed to load internal details. Please try again.');
           } finally {
             setLoadingInternalDetails(false);
           }
-        } else if (selectedNavdetails === "External Details" && externalDetails.length === 0 && !loadingExternalDetails) {
+        } else if (selectedNavdetails === "External Details" && externalDetails.length === 0) {
           setLoadingExternalDetails(true);
           try {
             const externalDetailedRes = await listService.getExternalProjectsDetailed();
+            console.log('External details response:', externalDetailedRes);
             setExternalDetails(externalDetailedRes.data);
           } catch (err) {
             console.error('Error loading external details:', err);
-            if (!error) setError('Failed to load external details. Please try again.');
+            setError('Failed to load external details. Please try again.');
           } finally {
             setLoadingExternalDetails(false);
           }
@@ -135,16 +90,7 @@ const BodyContent = () => {
     loadDetailsData();
   }, [selectedNavdetails, showProjectRequestList]);
 
-  useEffect(() => {
-    if (externalRequests.length > 0) {
-      console.log('External Requests Data Structure:', externalRequests[0]);
-    }
-    if (internalLabor.length > 0) {
-      console.log('Internal Labor Data Structure:', internalLabor[0]);
-    }
-  }, [externalRequests, internalLabor]);
-
-  // Handle navigation click
+  
   const handleNavClick = (nav) => {
     setSelectedNav(nav);
     setSelectedRequests([]);
@@ -152,47 +98,6 @@ const BodyContent = () => {
 
   const handleNavDetailsClick = (navdetails) => {
     setSelectedNavdetails(navdetails);
-  };
-
-  const handleCheckboxChange = (index) => {
-    const updatedSelection = [...selectedRequests];
-    updatedSelection[index] = !updatedSelection[index];
-    setSelectedRequests(updatedSelection);
-  };
-
-  const handleRemoveRequests = async () => {
-    try {
-      const selectedIds = [];
-      
-      if (selectedNav === "Internal Request") {
-        internalLabor.forEach((item, index) => {
-          if (selectedRequests[index]) {
-            selectedIds.push(item.project_labor_id);
-          }
-        });
-        
-        if (selectedIds.length > 0) {
-          await listService.deleteExternalLabor(selectedIds);
-          setInternalLabor(prev => prev.filter((_, index) => !selectedRequests[index]));
-        }
-      } else if (selectedNav === "External Request") {
-        externalRequests.forEach((item, index) => {
-          if (selectedRequests[index]) {
-            selectedIds.push(item.project_id);
-          }
-        });
-        
-        if (selectedIds.length > 0) {
-          await listService.deleteExternalProjects(selectedIds);
-          setExternalRequests(prev => prev.filter((_, index) => !selectedRequests[index]));
-        }
-      }
-      
-      setSelectedRequests([]);
-    } catch (err) {
-      console.error('Failed to remove requests:', err);
-      setError('Failed to remove selected items');
-    }
   };
 
   const handleBackClick = () => {
@@ -203,8 +108,14 @@ const BodyContent = () => {
     setShowProjectRequestList(false);
   };
 
-  // Show loading indicator while initial data is being fetched
-  if (loading && (loadingExternal && loadingLabor)) {
+  
+  const handleFilter = () => {
+    
+    console.log("Filter functionality will be implemented here");
+  };
+
+  
+  if (loading) {
     return (
       <div className="body-content-container">
         <div className="loading-message">
@@ -213,7 +124,6 @@ const BodyContent = () => {
       </div>
     );
   }
-
 
   return (
     <div className="project-list-container">
@@ -251,13 +161,9 @@ const BodyContent = () => {
               </div>
               
               <div className="action-buttons">
-                <button className="btn btn-filter">
+                <button className="btn btn-filter" onClick={handleFilter}>
                   <i className="filter-icon"></i>
                   Filter By
-                </button>
-                <button className="btn btn-danger" onClick={handleRemoveRequests}>
-                  <i className="remove-icon"></i>
-                  Remove Request
                 </button>
                 <button className="btn btn-secondary" onClick={handleProjectRequestDetailsClick}>
                   <i className="details-icon"></i>
@@ -284,43 +190,37 @@ const BodyContent = () => {
             <div className="table-container">
               {selectedNav === "Internal Request" && (
                 <div className="data-table-wrapper">
-                  {loadingLabor ? (
+                  {loadingInternal ? (
                     <div className="loading-message">
                       <div className="spinner"></div>
-                      <p>Loading internal labor data...</p>
+                      <p>Loading internal request data...</p>
                     </div>
                   ) : (
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th className="select-col"></th>
-                          <th>Int Project Labor ID</th>
                           <th>Project ID</th>
-                          <th>Job Roles Needed</th>
-                          <th>Employee ID</th>
+                          <th>Approval ID</th>
+                          <th>Project Budget Approval</th>
+                          <th>Project Budget Request</th>
+                          <th>Project Budget Description</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {internalLabor.length > 0 ? (
-                          internalLabor.map((item, index) => (
+                        {internalRequests.length > 0 ? (
+                          internalRequests.map((item, index) => (
                             <tr key={index}>
-                              <td className="select-col">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedRequests[index] || false}
-                                  onChange={() => handleCheckboxChange(index)}
-                                />
-                              </td>
-                              <td>{item.project_labor_id}</td>
-                              <td>{item.project_id}</td>
-                              <td>{item.job_role_needed}</td>
-                              <td>{item.employee_id}</td>
+                              <td>{item.intrnl_project_id || item.project_id}</td>
+                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
+                              <td>{item.project_budget_approval || 'N/A'}</td>
+                              <td>{item.project_budget_request || 'N/A'}</td>
+                              <td>{item.project_budget_description || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
                             <td colSpan="5" className="no-data">
-                              No internal labor data available
+                              No internal request data available
                             </td>
                           </tr>
                         )}
@@ -341,41 +241,33 @@ const BodyContent = () => {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th className="select-col"></th>
                           <th>ExtProject ID</th>
                           <th>Project Request ID</th>
                           <th>Project Status</th>
-                          <th>Job Role Needed</th>
-                          <th>Employee ID</th>
-                          <th>Project Equipment ID</th>
+                          <th>Approval ID</th>
+                          <th>Project Budget Approval</th>
+                          <th>Sales Order ID</th>
                         </tr>
                       </thead>
                       <tbody>
                         {externalRequests.length > 0 ? (
                           externalRequests.map((item, index) => (
                             <tr key={index}>
-                              <td className="select-col">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedRequests[index] || false}
-                                  onChange={() => handleCheckboxChange(index)}
-                                />
-                              </td>
                               <td>{item.project_id}</td>
                               <td>{item.ext_project_request_id}</td>
                               <td>
-                                <span className={`status-badge ${item.project_status?.toLowerCase()}`}>
-                                  {item.project_status}
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
                                 </span>
                               </td>
-                              <td>N/A</td>
-                              <td>N/A</td>
-                              <td>N/A</td>
+                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
+                              <td>{item.project_budget_approval || 'N/A'}</td>
+                              <td>{item.sales_order_id || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="7" className="no-data">
+                            <td colSpan="6" className="no-data">
                               No external request data available
                             </td>
                           </tr>
@@ -424,38 +316,38 @@ const BodyContent = () => {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th className="select-col"></th>
                           <th>Int Project ID</th>
                           <th>Project Request ID</th>
                           <th>Project Name</th>
                           <th>Project Status</th>
                           <th>Approval ID</th>
-                          <th>Employee ID</th>
                           <th>Department ID</th>
                           <th>Budget Request</th>
                           <th>Budget Description</th>
                           <th>Project Description</th>
+                          <th>Project Budget Request</th>
+                          <th>Project Budget Description</th>
                         </tr>
                       </thead>
                       <tbody>
                         {internalDetails.length > 0 ? (
                           internalDetails.map((item, index) => (
                             <tr key={index}>
-                              <td className="select-col"></td>
                               <td>{item.intrnl_project_id}</td>
-                              <td>{item.project_request?.project_request_id}</td>
-                              <td>{item.project_request?.project_name}</td>
+                              <td>{item.project_request_id}</td>
+                              <td>{item.project_request?.project_name || 'N/A'}</td>
                               <td>
-                                <span className={`status-badge ${item.intrnl_project_status?.toLowerCase()}`}>
-                                  {item.intrnl_project_status}
+                                <span className={`status-badge ${item.intrnl_project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.intrnl_project_status || 'Pending'}
                                 </span>
                               </td>
-                              <td>{item.approval_id}</td>
-                              <td>{item.project_request?.employee_id}</td>
-                              <td>{item.project_request?.dept_id}</td>
-                              <td>{item.project_request?.project_budget_request}</td>
-                              <td>{item.project_request?.project_budget_description}</td>
-                              <td>{item.project_request?.project_description}</td>
+                              <td>{item.budget_approvals_id || item.approval_id || 'N/A'}</td>
+                              <td>{item.project_request?.dept_id || 'N/A'}</td>
+                              <td>{item.project_request?.project_budget_request || 'N/A'}</td>
+                              <td>{item.project_request?.project_budget_description || 'N/A'}</td>
+                              <td>{item.project_request?.project_description || 'N/A'}</td>
+                              <td>{item.project_request?.project_budget_request || 'N/A'}</td>
+                              <td>{item.project_request?.project_budget_description || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (
@@ -482,36 +374,36 @@ const BodyContent = () => {
                     <table className="data-table">
                       <thead>
                         <tr>
-                          <th className="select-col"></th>
                           <th>ExtProject ID</th>
                           <th>Project Name</th>
                           <th>Project Description</th>
-                          <th>Approval Id</th>
+                          <th>Approval ID</th>
                           <th>Item ID</th>
                           <th>Project Status</th>
                           <th>Warranty Coverage</th>
                           <th>Warranty Start Date</th>
                           <th>Warranty End Date</th>
+                          <th>Sales Order ID</th>
                         </tr>
                       </thead>
                       <tbody>
                         {externalDetails.length > 0 ? (
                           externalDetails.map((item, index) => (
                             <tr key={index}>
-                              <td className="select-col"></td>
                               <td>{item.project_id}</td>
-                              <td>{item.ext_project_request?.ext_project_name}</td>
-                              <td>{item.ext_project_request?.ext_project_description}</td>
-                              <td>{item.ext_project_request?.approval_id}</td>
-                              <td>{item.ext_project_request?.item_id}</td>
+                              <td>{item.ext_project_request?.ext_project_name || 'N/A'}</td>
+                              <td>{item.ext_project_request?.ext_project_description || 'N/A'}</td>
+                              <td>{item.budget_approvals_id || item.ext_project_request?.approval_id || 'N/A'}</td>
+                              <td>{item.ext_project_request?.item_id || 'N/A'}</td>
                               <td>
-                                <span className={`status-badge ${item.project_status?.toLowerCase()}`}>
-                                  {item.project_status}
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
                                 </span>
                               </td>
                               <td>{item.warranty?.warranty_coverage_yr} {item.warranty?.warranty_coverage_yr ? 'Years' : ''}</td>
-                              <td>{item.warranty?.warranty_start_date}</td>
-                              <td>{item.warranty?.warranty_end_date}</td>
+                              <td>{item.warranty?.warranty_start_date || 'N/A'}</td>
+                              <td>{item.warranty?.warranty_end_date || 'N/A'}</td>
+                              <td>{item.sales_order_id || item.ext_project_request?.item_id || 'N/A'}</td>
                             </tr>
                           ))
                         ) : (

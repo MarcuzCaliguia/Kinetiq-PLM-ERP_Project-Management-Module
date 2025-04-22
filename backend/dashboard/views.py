@@ -176,3 +176,40 @@ class ProjectSummaryView(APIView):
         except Exception as e:
             print(f"Error in ProjectSummaryView: {str(e)}")
             return Response({"error": str(e)}, status=500)
+
+class ProjectDetailView(APIView):
+    def get(self, request, project_id, project_type):
+        try:
+            if project_type.lower() == 'external':
+                project = ExternalProjectTracking.objects.filter(project_tracking_id=project_id).first()
+                if not project:
+                    return Response({"error": "External project not found"}, status=404)
+                
+                return Response({
+                    "project_tracking_id": project.project_tracking_id,
+                    "project_id": project.project.project_id if project.project else None,
+                    "project_milestone": project.project_milestone,
+                    "start_date": project.start_date,
+                    "estimated_end_date": project.estimated_end_date,
+                    "project_warranty_id": project.project_warranty.project_warranty_id if project.project_warranty else None,
+                    "project_issue": project.project_issue
+                })
+            
+            elif project_type.lower() == 'internal':
+                project = InternalProjectTracking.objects.filter(intrnl_project_tracking_id=project_id).first()
+                if not project:
+                    return Response({"error": "Internal project not found"}, status=404)
+                
+                return Response({
+                    "intrnl_project_tracking_id": project.intrnl_project_tracking_id,
+                    "intrnl_project_id": project.intrnl_project.intrnl_project_id if project.intrnl_project else None,
+                    "intrnl_start_date": project.intrnl_start_date,
+                    "intrnl_estimated_end_date": project.intrnl_estimated_end_date,
+                    "intrnl_project_issue": project.intrnl_project_issue
+                })
+            
+            else:
+                return Response({"error": "Invalid project type"}, status=400)
+                
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

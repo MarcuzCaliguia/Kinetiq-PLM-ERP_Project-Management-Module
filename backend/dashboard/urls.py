@@ -4,7 +4,7 @@ from .views import (
     OverdueTasksView, TodayTasksView, ExternalProjectTrackingView,
     InternalProjectTrackingView, CreateExternalProjectView,
     CreateInternalProjectView, ProjectSummaryView,
-    SearchExternalProjectView, SearchInternalProjectView,
+    SearchExternalProjectView, SearchInternalProjectView, ProjectDetailView,
     SearchWarrantyView, SearchProjectRequestView
 )
 
@@ -19,5 +19,6 @@ urlpatterns = [
     path('search-external-project/', SearchExternalProjectView.as_view(), name='search-external-project'),
     path('search-internal-project/', SearchInternalProjectView.as_view(), name='search-internal-project'),
     path('search-warranty/', SearchWarrantyView.as_view(), name='search-warranty'),
+    path('project-detail/<str:project_type>/<str:project_id>/', ProjectDetailView.as_view(), name='project-detail'), 
     path('search-project-request/', SearchProjectRequestView.as_view(), name='search-project-request'),
 ]
