@@ -1,24 +1,11 @@
-
 from django.urls import path
-from .views import (
-    OverdueTasksView, TodayTasksView, ExternalProjectTrackingView,
-    InternalProjectTrackingView, CreateExternalProjectView,
-    CreateInternalProjectView, ProjectSummaryView,
-    SearchExternalProjectView, SearchInternalProjectView, ProjectDetailView,
-    SearchWarrantyView, SearchProjectRequestView
-)
+from . import views
 
 urlpatterns = [
-    path('overdue-tasks/', OverdueTasksView.as_view(), name='overdue-tasks'),
-    path('today-tasks/', TodayTasksView.as_view(), name='today-tasks'),
-    path('external-projects/', ExternalProjectTrackingView.as_view(), name='external-projects'),
-    path('internal-projects/', InternalProjectTrackingView.as_view(), name='internal-projects'),
-    path('create-external-project/', CreateExternalProjectView.as_view(), name='create-external-project'),
-    path('create-internal-project/', CreateInternalProjectView.as_view(), name='create-internal-project'),
-    path('project-summary/', ProjectSummaryView.as_view(), name='project-summary'),
-    path('search-external-project/', SearchExternalProjectView.as_view(), name='search-external-project'),
-    path('search-internal-project/', SearchInternalProjectView.as_view(), name='search-internal-project'),
-    path('search-warranty/', SearchWarrantyView.as_view(), name='search-warranty'),
-    path('project-detail/<str:project_type>/<str:project_id>/', ProjectDetailView.as_view(), name='project-detail'), 
-    path('search-project-request/', SearchProjectRequestView.as_view(), name='search-project-request'),
+    path('overdue-tasks/', views.get_overdue_tasks, name='get_overdue_tasks'),
+    path('today-tasks/', views.get_today_tasks, name='get_today_tasks'),
+    path('project-summary/', views.get_project_summary, name='get_project_summary'),
+    path('project-detail/<str:project_type>/<str:project_id>/', views.get_project_detail, name='get_project_detail'),
+    path('update-task-status/<str:task_id>/', views.update_task_status, name='update_task_status'),
+    path('add-project-task/', views.add_project_task, name='add_project_task'),
 ]

@@ -1,215 +1,448 @@
-
-from rest_framework import viewsets, status
+from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, action
-from rest_framework.views import APIView
-from .models import (
-    ExternalProjectDetails, InternalProjectDetails,
-    ExternalProjectTracking, InternalProjectTracking,
-    ExternalProjectTaskList, InternalProjectTaskList,
-    ExternalProjectWarranty, ExternalProjectRequest,
-    InternalProjectRequest
-)
-from .serializers import (
-    ExternalProjectTrackingSerializer, InternalProjectTrackingSerializer,
-    ExternalProjectTaskListSerializer, InternalProjectTaskListSerializer,
-    CreateExternalProjectSerializer, CreateInternalProjectSerializer,
-    ExternalProjectDetailsSerializer, InternalProjectDetailsSerializer,
-    ExternalProjectWarrantySerializer, ExternalProjectRequestSerializer,
-    InternalProjectRequestSerializer
-)
-from datetime import date
-from django.db.models import Q
+from rest_framework.decorators import api_view
+from django.db import connection
+from datetime import datetime, timedelta
+import traceback
 
-class OverdueTasksView(APIView):
-    def get(self, request):
+@api_view(['GET'])
+def get_overdue_tasks(request):
+    try:
+        today = datetime.now().date()
         
-        today = date.today()
-        
-        external_overdue = ExternalProjectTaskList.objects.filter(task_deadline__lt=today)
-        internal_overdue = InternalProjectTaskList.objects.filter(intrnl_task_deadline__lt=today)
-        
-        external_serializer = ExternalProjectTaskListSerializer(external_overdue, many=True)
-        internal_serializer = InternalProjectTaskListSerializer(internal_overdue, many=True)
-        
-        
-        combined_data = external_serializer.data + internal_serializer.data
-        
-        return Response(combined_data)
+        # Use raw SQL to query the normalized database structure
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    pt.task_id,
+                    pt.task_description,
+                    pt.task_deadline,
+                    pt.task_status,
+                    pt.project_id,
+                    pt.intrnl_project_id,
+                    pt.project_labor_id,
+                    pl.employee_id,
+                    COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as employee_name
+                FROM 
+                    project_management.project_tasks pt
+                LEFT JOIN 
+                    project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
+                LEFT JOIN 
+                    human_resources.employees e ON pl.employee_id = e.employee_id
+                WHERE 
+                    pt.task_deadline < %s
+                    AND pt.task_status NOT IN ('completed', 'canceled')
+                ORDER BY 
+                    pt.task_deadline ASC
+            """, [today])
+            
+            overdue_tasks = []
+            for row in cursor.fetchall():
+                task_id, task_description, task_deadline, task_status, project_id, intrnl_project_id, project_labor_id, employee_id, employee_name = row
+                
+                overdue_days = (today - task_deadline).days
+                
+                overdue_tasks.append({
+                    'Overdue': f"{overdue_days} days",
+                    'Task': task_description,
+                    'Deadline': task_deadline.strftime('%Y-%m-%d'),
+                    'Employee': employee_name,
+                    'ProjectID': project_id or intrnl_project_id,
+                    'TaskID': task_id
+                })
+                
+        return Response(overdue_tasks)
+    except Exception as e:
+        print(f"Error fetching overdue tasks: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class TodayTasksView(APIView):
-    def get(self, request):
+@api_view(['GET'])
+def get_today_tasks(request):
+    try:
+        today = datetime.now().date()
         
-        today = date.today()
-        
-        external_today = ExternalProjectTaskList.objects.filter(task_deadline=today)
-        internal_today = InternalProjectTaskList.objects.filter(intrnl_task_deadline=today)
-        
-        external_serializer = ExternalProjectTaskListSerializer(external_today, many=True)
-        internal_serializer = InternalProjectTaskListSerializer(internal_today, many=True)
-        
-        
-        combined_data = external_serializer.data + internal_serializer.data
-        
-        return Response(combined_data)
+        # Use raw SQL to query the normalized database structure
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT 
+                    pt.task_id,
+                    pt.task_description,
+                    pt.task_status,
+                    pt.project_id,
+                    pt.intrnl_project_id,
+                    COALESCE(epr.ext_project_name, ipr.project_name, 'Unknown Project') as project_name
+                FROM 
+                    project_management.project_tasks pt
+                LEFT JOIN 
+                    project_management.external_project_details epd ON pt.project_id = epd.project_id
+                LEFT JOIN 
+                    project_management.external_project_request epr ON epd.ext_project_request_id = epr.ext_project_request_id
+                LEFT JOIN 
+                    project_management.internal_project_details ipd ON pt.intrnl_project_id = ipd.intrnl_project_id
+                LEFT JOIN 
+                    project_management.internal_project_request ipr ON ipd.project_request_id = ipr.project_request_id
+                WHERE 
+                    pt.task_deadline = %s
+                ORDER BY 
+                    pt.task_status
+            """, [today])
+            
+            today_tasks = []
+            for row in cursor.fetchall():
+                task_id, task_description, task_status, project_id, intrnl_project_id, project_name = row
+                
+                today_tasks.append({
+                    'Task': task_description,
+                    'ProjectID': project_id or intrnl_project_id,
+                    'ProjectName': project_name,
+                    'Status': task_status,
+                    'TaskID': task_id
+                })
+                
+        return Response(today_tasks)
+    except Exception as e:
+        print(f"Error fetching today's tasks: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ExternalProjectTrackingView(APIView):
-    def get(self, request):
-        projects = ExternalProjectTracking.objects.all()
-        serializer = ExternalProjectTrackingSerializer(projects, many=True)
-        return Response(serializer.data)
-
-class InternalProjectTrackingView(APIView):
-    def get(self, request):
-        projects = InternalProjectTracking.objects.all()
-        serializer = InternalProjectTrackingSerializer(projects, many=True)
-        return Response(serializer.data)
-
-class SearchExternalProjectView(APIView):
-    def get(self, request):
-        query = request.query_params.get('query', '')
-        if not query:
+@api_view(['GET'])
+def get_project_summary(request):
+    try:
+        # Use raw SQL to query the normalized database structure
+        with connection.cursor() as cursor:
+            # External projects
+            cursor.execute("""
+                SELECT 
+                    epd.project_id,
+                    epr.ext_project_name,
+                    epd.project_status,
+                    epd.start_date,
+                    epd.estimated_end_date,
+                    epd.project_issues IS NOT NULL AND epd.project_issues != '' as has_issues
+                FROM 
+                    project_management.external_project_details epd
+                LEFT JOIN 
+                    project_management.external_project_request epr ON epd.ext_project_request_id = epr.ext_project_request_id
+                ORDER BY 
+                    epd.start_date DESC NULLS LAST
+            """)
             
-            projects = ExternalProjectDetails.objects.all()[:10]
-        else:
-            projects = ExternalProjectDetails.objects.filter(
-                project_id__icontains=query
-            )[:10]
-        
-        serializer = ExternalProjectDetailsSerializer(projects, many=True)
-        return Response(serializer.data)
-
-class SearchInternalProjectView(APIView):
-    def get(self, request):
-        query = request.query_params.get('query', '')
-        if not query:
-            
-            projects = InternalProjectDetails.objects.all()[:10]
-        else:
-            projects = InternalProjectDetails.objects.filter(
-                intrnl_project_id__icontains=query
-            )[:10]
-        
-        serializer = InternalProjectDetailsSerializer(projects, many=True)
-        return Response(serializer.data)
-
-class SearchWarrantyView(APIView):
-    def get(self, request):
-        query = request.query_params.get('query', '')
-        if not query:
-            
-            warranties = ExternalProjectWarranty.objects.all()[:10]
-        else:
-            warranties = ExternalProjectWarranty.objects.filter(
-                project_warranty_id__icontains=query
-            )[:10]
-        
-        serializer = ExternalProjectWarrantySerializer(warranties, many=True)
-        return Response(serializer.data)
-
-class SearchProjectRequestView(APIView):
-    def get(self, request):
-        query = request.query_params.get('query', '')
-        if not query:
-            
-            requests = InternalProjectRequest.objects.all()[:10]
-        else:
-            requests = InternalProjectRequest.objects.filter(
-                Q(project_request_id__icontains=query) | Q(project_name__icontains=query)
-            )[:10]
-        
-        serializer = InternalProjectRequestSerializer(requests, many=True)
-        return Response(serializer.data)
-    
-class CreateExternalProjectView(APIView):
-    def post(self, request):
-        serializer = CreateExternalProjectSerializer(data=request.data)
-        if serializer.is_valid():
-            result = serializer.save()
-            return Response(result, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class CreateInternalProjectView(APIView):
-    def post(self, request):
-        serializer = CreateInternalProjectSerializer(data=request.data)
-        if serializer.is_valid():
-            result = serializer.save()
-            return Response(result, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class ProjectSummaryView(APIView):
-    def get(self, request):
-        try:
-            
-            external_projects = ExternalProjectTracking.objects.all()
-            
-            
-            internal_projects = InternalProjectTracking.objects.all()
-            
-            
-            combined_data = []
-            
-            
-            for project in external_projects:
-                combined_data.append({
-                    'id': project.project_tracking_id,
-                    'projectId': project.project.project_id if project.project else "N/A",
+            external_projects = []
+            for row in cursor.fetchall():
+                project_id, project_name, status, start_date, end_date, has_issues = row
+                
+                external_projects.append({
+                    'id': project_id,
+                    'projectId': project_name or "Unnamed Project",
                     'type': 'External',
-                    'startDate': project.start_date.strftime('%Y-%m-%d') if project.start_date else "N/A",
-                    'endDate': project.estimated_end_date.strftime('%Y-%m-%d') if project.estimated_end_date else "N/A",
-                    'issue': project.project_issue if project.project_issue else ""
+                    'startDate': start_date.strftime('%Y-%m-%d') if start_date else 'Not set',
+                    'endDate': end_date.strftime('%Y-%m-%d') if end_date else 'Not set',
+                    'status': status,
+                    'issue': has_issues
                 })
             
+            # Internal projects
+            cursor.execute("""
+                SELECT 
+                    ipd.intrnl_project_id,
+                    ipr.project_name,
+                    ipd.intrnl_project_status,
+                    ipd.start_date,
+                    ipd.estimated_end_date,
+                    ipd.project_issues IS NOT NULL AND ipd.project_issues != '' as has_issues
+                FROM 
+                    project_management.internal_project_details ipd
+                LEFT JOIN 
+                    project_management.internal_project_request ipr ON ipd.project_request_id = ipr.project_request_id
+                ORDER BY 
+                    ipd.start_date DESC NULLS LAST
+            """)
             
-            for project in internal_projects:
-                combined_data.append({
-                    'id': project.intrnl_project_tracking_id,
-                    'projectId': project.intrnl_project.intrnl_project_id if project.intrnl_project else "N/A",
+            internal_projects = []
+            for row in cursor.fetchall():
+                project_id, project_name, status, start_date, end_date, has_issues = row
+                
+                internal_projects.append({
+                    'id': project_id,
+                    'projectId': project_name or "Unnamed Project",
                     'type': 'Internal',
-                    'startDate': project.intrnl_start_date.strftime('%Y-%m-%d') if project.intrnl_start_date else "N/A",
-                    'endDate': project.intrnl_estimated_end_date.strftime('%Y-%m-%d') if project.intrnl_estimated_end_date else "N/A",
-                    'issue': project.intrnl_project_issue if project.intrnl_project_issue else ""
+                    'startDate': start_date.strftime('%Y-%m-%d') if start_date else 'Not set',
+                    'endDate': end_date.strftime('%Y-%m-%d') if end_date else 'Not set',
+                    'status': status,
+                    'issue': has_issues
                 })
-            
-            return Response(combined_data)
-        except Exception as e:
-            print(f"Error in ProjectSummaryView: {str(e)}")
-            return Response({"error": str(e)}, status=500)
+                
+        # Combine both project types
+        all_projects = external_projects + internal_projects
+                
+        return Response(all_projects)
+    except Exception as e:
+        print(f"Error fetching project summary: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class ProjectDetailView(APIView):
-    def get(self, request, project_id, project_type):
-        try:
-            if project_type.lower() == 'external':
-                project = ExternalProjectTracking.objects.filter(project_tracking_id=project_id).first()
-                if not project:
-                    return Response({"error": "External project not found"}, status=404)
+@api_view(['GET'])
+def get_project_detail(request, project_type, project_id):
+    try:
+        if project_type == 'External':
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        epd.project_id,
+                        epr.ext_project_name,
+                        epr.ext_project_description,
+                        epd.project_status,
+                        epd.project_milestone,
+                        epd.start_date,
+                        epd.estimated_end_date,
+                        epd.warranty_coverage_yr,
+                        epd.warranty_start_date,
+                        epd.warranty_end_date,
+                        epd.project_issues
+                    FROM 
+                        project_management.external_project_details epd
+                    LEFT JOIN 
+                        project_management.external_project_request epr ON epd.ext_project_request_id = epr.ext_project_request_id
+                    WHERE 
+                        epd.project_id = %s
+                """, [project_id])
                 
-                return Response({
-                    "project_tracking_id": project.project_tracking_id,
-                    "project_id": project.project.project_id if project.project else None,
-                    "project_milestone": project.project_milestone,
-                    "start_date": project.start_date,
-                    "estimated_end_date": project.estimated_end_date,
-                    "project_warranty_id": project.project_warranty.project_warranty_id if project.project_warranty else None,
-                    "project_issue": project.project_issue
-                })
+                row = cursor.fetchone()
+                if not row:
+                    return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+                    
+                project_id, project_name, project_description, project_status, milestone, start_date, end_date, warranty_yr, warranty_start, warranty_end, issues = row
+                
+                # Get tasks for this project
+                cursor.execute("""
+                    SELECT 
+                        task_id,
+                        task_description,
+                        task_status,
+                        task_deadline
+                    FROM 
+                        project_management.project_tasks
+                    WHERE 
+                        project_id = %s
+                    ORDER BY 
+                        task_deadline
+                """, [project_id])
+                
+                tasks = []
+                for task_row in cursor.fetchall():
+                    task_id, task_desc, task_status, task_deadline = task_row
+                    tasks.append({
+                        'id': task_id,
+                        'description': task_desc,
+                        'status': task_status,
+                        'deadline': task_deadline.strftime('%Y-%m-%d') if task_deadline else None
+                    })
+                
+                # Get labor assignments for this project
+                cursor.execute("""
+                    SELECT 
+                        pl.project_labor_id,
+                        pl.job_role_needed,
+                        pl.employee_id,
+                        COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as employee_name
+                    FROM 
+                        project_management.project_labor pl
+                    LEFT JOIN 
+                        human_resources.employees e ON pl.employee_id = e.employee_id
+                    WHERE 
+                        pl.project_id = %s
+                """, [project_id])
+                
+                labor = []
+                for labor_row in cursor.fetchall():
+                    labor_id, job_role, emp_id, emp_name = labor_row
+                    labor.append({
+                        'id': labor_id,
+                        'role': job_role,
+                        'employeeId': emp_id,
+                        'employeeName': emp_name
+                    })
+                
+                result = {
+                    'project_tracking_id': project_id,
+                    'project_id': project_id,
+                    'project_name': project_name,
+                    'project_description': project_description,
+                    'project_status': project_status,
+                    'project_milestone': milestone,
+                    'start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+                    'estimated_end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+                    'warranty_coverage_yr': warranty_yr,
+                    'warranty_start_date': warranty_start.strftime('%Y-%m-%d') if warranty_start else None,
+                    'warranty_end_date': warranty_end.strftime('%Y-%m-%d') if warranty_end else None,
+                    'project_issues': issues,
+                    'tasks': tasks,
+                    'labor': labor
+                }
+                
+        elif project_type == 'Internal':
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        ipd.intrnl_project_id,
+                        ipr.project_name,
+                        ipd.intrnl_project_status,
+                        ipd.start_date,
+                        ipd.estimated_end_date,
+                        ipr.project_budget_request,
+                        ipr.project_budget_description,
+                        ipd.approval_id,
+                        ipd.project_issues
+                    FROM 
+                        project_management.internal_project_details ipd
+                    LEFT JOIN 
+                        project_management.internal_project_request ipr ON ipd.project_request_id = ipr.project_request_id
+                    WHERE 
+                        ipd.intrnl_project_id = %s
+                """, [project_id])
+                
+                row = cursor.fetchone()
+                if not row:
+                    return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+                    
+                project_id, project_name, project_status, start_date, end_date, budget, budget_desc, approval_id, issues = row
+                
+                # Get tasks for this project
+                cursor.execute("""
+                    SELECT 
+                        task_id,
+                        task_description,
+                        task_status,
+                        task_deadline
+                    FROM 
+                        project_management.project_tasks
+                    WHERE 
+                        intrnl_project_id = %s
+                    ORDER BY 
+                        task_deadline
+                """, [project_id])
+                
+                tasks = []
+                for task_row in cursor.fetchall():
+                    task_id, task_desc, task_status, task_deadline = task_row
+                    tasks.append({
+                        'id': task_id,
+                        'description': task_desc,
+                        'status': task_status,
+                        'deadline': task_deadline.strftime('%Y-%m-%d') if task_deadline else None
+                    })
+                
+                # Get labor assignments for this project - now using project_labor table
+                cursor.execute("""
+                    SELECT 
+                        pl.project_labor_id,
+                        pl.job_role_needed,
+                        pl.employee_id,
+                        COALESCE(e.first_name || ' ' || e.last_name, 'Unassigned') as employee_name
+                    FROM 
+                        project_management.project_labor pl
+                    LEFT JOIN 
+                        human_resources.employees e ON pl.employee_id = e.employee_id
+                    WHERE 
+                        pl.intrnl_project_id = %s
+                """, [project_id])
+                
+                labor = []
+                for labor_row in cursor.fetchall():
+                    labor_id, job_role, emp_id, emp_name = labor_row
+                    labor.append({
+                        'id': labor_id,
+                        'role': job_role,
+                        'employeeId': emp_id,
+                        'employeeName': emp_name
+                    })
+                
+                result = {
+                    'intrnl_project_tracking_id': project_id,
+                    'intrnl_project_id': project_id,
+                    'project_name': project_name,
+                    'project_description': "No description available",  # Providing a default since the column doesn't exist
+                    'intrnl_project_status': project_status,
+                    'intrnl_start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
+                    'intrnl_estimated_end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
+                    'budget': str(budget) if budget else None,
+                    'budget_description': budget_desc,
+                    'approval_id': approval_id,
+                    'intrnl_project_issue': issues,
+                    'tasks': tasks,
+                    'labor': labor
+                }
+        else:
+            return Response({'error': 'Invalid project type'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(result)
+    except Exception as e:
+        print(f"Error fetching project detail: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def update_task_status(request, task_id):
+    try:
+        new_status = request.data.get('status')
+        if not new_status:
+            return Response({'error': 'Status is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                UPDATE project_management.project_tasks
+                SET task_status = %s
+                WHERE task_id = %s
+                RETURNING task_id
+            """, [new_status, task_id])
             
-            elif project_type.lower() == 'internal':
-                project = InternalProjectTracking.objects.filter(intrnl_project_tracking_id=project_id).first()
-                if not project:
-                    return Response({"error": "Internal project not found"}, status=404)
+            if cursor.rowcount == 0:
+                return Response({'error': 'Task not found'}, status=status.HTTP_404_NOT_FOUND)
                 
-                return Response({
-                    "intrnl_project_tracking_id": project.intrnl_project_tracking_id,
-                    "intrnl_project_id": project.intrnl_project.intrnl_project_id if project.intrnl_project else None,
-                    "intrnl_start_date": project.intrnl_start_date,
-                    "intrnl_estimated_end_date": project.intrnl_estimated_end_date,
-                    "intrnl_project_issue": project.intrnl_project_issue
-                })
+        return Response({'message': 'Task status updated successfully'})
+    except Exception as e:
+        print(f"Error updating task status: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def add_project_task(request):
+    try:
+        project_id = request.data.get('project_id')
+        intrnl_project_id = request.data.get('intrnl_project_id')
+        task_description = request.data.get('task_description')
+        task_deadline = request.data.get('task_deadline')
+        task_status = request.data.get('task_status', 'not started')
+        project_labor_id = request.data.get('project_labor_id')
+        
+        if not task_description:
+            return Response({'error': 'Task description is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not task_deadline:
+            return Response({'error': 'Task deadline is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (project_id or intrnl_project_id):
+            return Response({'error': 'Either project_id or intrnl_project_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # The task_id will be generated by the database trigger
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                INSERT INTO project_management.project_tasks
+                (project_id, intrnl_project_id, task_description, task_status, task_deadline, project_labor_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING task_id
+            """, [project_id, intrnl_project_id, task_description, task_status, task_deadline, project_labor_id])
             
-            else:
-                return Response({"error": "Invalid project type"}, status=400)
+            result = cursor.fetchone()
+            if not result:
+                return Response({'error': 'Failed to create task'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            task_id = result[0]
                 
-        except Exception as e:
-            return Response({"error": str(e)}, status=500)
+        return Response({
+            'task_id': task_id,
+            'message': 'Task created successfully'
+        }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        print(f"Error adding project task: {str(e)}")
+        print(traceback.format_exc())
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
