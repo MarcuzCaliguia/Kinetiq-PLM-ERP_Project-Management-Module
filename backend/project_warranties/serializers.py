@@ -1,9 +1,23 @@
+# project_warranties/serializers.py
 from rest_framework import serializers
-from .models import ExternalProjectWarranty
+from .models import ExternalProjectDetails, ProjectWarrantyView, ExternalProjectRequest, ExternalProjectsDetails
 
-class ExternalProjectWarrantySerializer(serializers.ModelSerializer):
+class ExternalProjectRequestSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ExternalProjectWarranty
-        fields = ['project_warranty_id', 'project_id', 'warranty_coverage_yr', 
-                  'warranty_start_date', 'warranty_end_date']
-        read_only_fields = ['project_warranty_id']  
+        model = ExternalProjectRequest
+        fields = '__all__'
+
+class ExternalProjectDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExternalProjectDetails
+        fields = '__all__'
+
+class ProjectWarrantyViewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectWarrantyView
+        fields = '__all__'
+
+class ExternalProjectsDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExternalProjectsDetails
+        fields = '__all__'
