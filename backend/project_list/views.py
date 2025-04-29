@@ -26,7 +26,7 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-# Helper function to convert cursor results to dictionaries
+
 def dictfetchall(cursor):
     """Return all rows from a cursor as a dict"""
     columns = [col[0] for col in cursor.description]
@@ -35,7 +35,7 @@ def dictfetchall(cursor):
         for row in cursor.fetchall()
     ]
 
-# Helper function to check if a column exists in a table
+
 def column_exists(table_name, column_name, schema='project_management'):
     with connection.cursor() as cursor:
         cursor.execute("""
@@ -47,11 +47,11 @@ def column_exists(table_name, column_name, schema='project_management'):
         """, [schema, table_name, column_name])
         return cursor.fetchone() is not None
 
-# Helper functions for archiving
+
 def archive_external_request(request_id, user_id=None):
     """Archive an external project request and its related data"""
     with connection.cursor() as cursor:
-        # First, check if archive tables exist, create them if not
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS project_management.archived_external_project_request (
                 ext_project_request_id character varying(255) NOT NULL,
@@ -84,7 +84,7 @@ def archive_external_request(request_id, user_id=None):
             )
         """)
         
-        # Copy the data to archive tables
+        
         cursor.execute("""
             INSERT INTO project_management.archived_external_project_request
             (ext_project_request_id, ext_project_name, ext_project_description, approval_id, item_id, archived_by)
@@ -97,7 +97,7 @@ def archive_external_request(request_id, user_id=None):
             ON CONFLICT (ext_project_request_id) DO NOTHING
         """, [user_id, request_id])
         
-        # Archive related project details
+        
         cursor.execute("""
             INSERT INTO project_management.archived_external_project_details
             (project_id, ext_project_request_id, project_status, project_milestone, start_date, 
@@ -114,9 +114,9 @@ def archive_external_request(request_id, user_id=None):
             ON CONFLICT (project_id) DO NOTHING
         """, [user_id, request_id])
         
-        # Now mark the original records as archived
+        
         try:
-            # Add archived column if it doesn't exist
+            
             if not column_exists('external_project_request', 'is_archived'):
                 cursor.execute("""
                     ALTER TABLE project_management.external_project_request 
@@ -129,7 +129,7 @@ def archive_external_request(request_id, user_id=None):
                     ADD COLUMN is_archived BOOLEAN DEFAULT FALSE
                 """)
             
-            # Mark as archived
+            
             cursor.execute("""
                 UPDATE project_management.external_project_request
                 SET is_archived = TRUE
@@ -143,7 +143,7 @@ def archive_external_request(request_id, user_id=None):
             """, [request_id])
         except Exception as e:
             logger.error(f"Error adding archive column: {str(e)}")
-            # If we can't add the column, we'll just return
+            
             return False
         
     return True
@@ -151,7 +151,7 @@ def archive_external_request(request_id, user_id=None):
 def archive_internal_request(request_id, user_id=None):
     """Archive an internal project request and its related data"""
     with connection.cursor() as cursor:
-        # First, check if archive tables exist, create them if not
+        
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS project_management.archived_internal_project_request (
                 project_request_id character varying(255) NOT NULL,
@@ -184,7 +184,7 @@ def archive_internal_request(request_id, user_id=None):
             )
         """)
         
-        # Copy the data to archive tables
+        
         cursor.execute("""
             INSERT INTO project_management.archived_internal_project_request
             (project_request_id, project_name, request_date, employee_id, dept_id, 
@@ -199,7 +199,7 @@ def archive_internal_request(request_id, user_id=None):
             ON CONFLICT (project_request_id) DO NOTHING
         """, [user_id, request_id])
         
-        # Archive related project details
+        
         cursor.execute("""
             INSERT INTO project_management.archived_internal_project_details
             (intrnl_project_id, project_request_id, intrnl_project_status, approval_id, 
@@ -214,9 +214,9 @@ def archive_internal_request(request_id, user_id=None):
             ON CONFLICT (intrnl_project_id) DO NOTHING
         """, [user_id, request_id])
         
-        # Now mark the original records as archived
+        
         try:
-            # Add archived column if it doesn't exist
+            
             if not column_exists('internal_project_request', 'is_archived'):
                 cursor.execute("""
                     ALTER TABLE project_management.internal_project_request 
@@ -229,7 +229,7 @@ def archive_internal_request(request_id, user_id=None):
                     ADD COLUMN is_archived BOOLEAN DEFAULT FALSE
                 """)
             
-            # Mark as archived
+            
             cursor.execute("""
                 UPDATE project_management.internal_project_request
                 SET is_archived = TRUE
@@ -243,7 +243,7 @@ def archive_internal_request(request_id, user_id=None):
             """, [request_id])
         except Exception as e:
             logger.error(f"Error adding archive column: {str(e)}")
-            # If we can't add the column, we'll just return
+            
             return False
         
     return True
@@ -256,7 +256,7 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """Override list to include specific columns with filtering"""
         try:
-            # Get pagination parameters
+            
             page = request.query_params.get('page', 1)
             try:
                 page = int(page)
@@ -266,13 +266,13 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
             page_size = 10
             offset = (page - 1) * page_size
             
-            # Get filter parameters
+            
             project_name = request.query_params.get('project_name', '')
             approval_id = request.query_params.get('approval_id', '')
             item_id = request.query_params.get('item_id', '')
             status = request.query_params.get('status', '')
             
-            # Build filter conditions
+            
             filter_conditions = []
             filter_params = []
             
@@ -292,27 +292,27 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                 filter_conditions.append("epd.project_status ILIKE %s")
                 filter_params.append(f"%{status}%")
             
-            # Build WHERE clause
+            
             where_clause = ""
             if filter_conditions:
                 where_clause = "WHERE " + " AND ".join(filter_conditions)
             else:
-                where_clause = "WHERE 1=1"  # Always true condition if no other filters
+                where_clause = "WHERE 1=1"  
             
-            # Check if is_archived column exists
+            
             has_is_archived = column_exists('external_project_request', 'is_archived')
             
-            # Add archive filter only if column exists
+            
             archive_filter = ""
             if has_is_archived:
                 archive_filter = "AND (epr.is_archived IS NULL OR epr.is_archived = FALSE)"
             
-            # Execute query with pagination and filters
+            
             with connection.cursor() as cursor:
-                # Set statement timeout to 10 seconds (10000 milliseconds)
+                
                 cursor.execute("SET statement_timeout = 10000")
                 
-                # Get total count for pagination with filters
+                
                 count_query = f"""
                     SELECT COUNT(*) 
                     FROM project_management.external_project_request epr
@@ -323,7 +323,7 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get paginated data with filters
+                
                 data_query = f"""
                     SELECT 
                         epr.ext_project_request_id,
@@ -344,10 +344,10 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset statement timeout to default
+                
                 cursor.execute("RESET statement_timeout")
                 
-            # Process data to handle None values and dates
+            
             for item in data:
                 for key, value in item.items():
                     if value is None:
@@ -355,7 +355,7 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                     elif isinstance(value, datetime.date):
                         item[key] = value.isoformat()
             
-            # Create pagination response
+            
             total_pages = (total_count + page_size - 1) // page_size
             response_data = {
                 'count': total_count,
@@ -406,7 +406,7 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """Override list to include all columns from external_project_details with filtering"""
         try:
-            # Get pagination parameters
+            
             page = request.query_params.get('page', 1)
             try:
                 page = int(page)
@@ -416,12 +416,12 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
             page_size = 10
             offset = (page - 1) * page_size
             
-            # Get filter parameters
+            
             project_name = request.query_params.get('project_name', '')
             approval_id = request.query_params.get('approval_id', '')
             status = request.query_params.get('status', '')
             
-            # Build filter conditions
+            
             filter_conditions = []
             filter_params = []
             
@@ -437,27 +437,27 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 filter_conditions.append("epd.project_status ILIKE %s")
                 filter_params.append(f"%{status}%")
             
-            # Build WHERE clause
+            
             where_clause = ""
             if filter_conditions:
                 where_clause = "WHERE " + " AND ".join(filter_conditions)
             else:
-                where_clause = "WHERE 1=1"  # Always true condition if no other filters
+                where_clause = "WHERE 1=1"  
             
-            # Check if is_archived column exists
+            
             has_is_archived = column_exists('external_project_details', 'is_archived')
             
-            # Add archive filter only if column exists
+            
             archive_filter = ""
             if has_is_archived:
                 archive_filter = "AND (epd.is_archived IS NULL OR epd.is_archived = FALSE)"
             
-            # Execute query with pagination and filters
+            
             with connection.cursor() as cursor:
-                # Set statement timeout to 10 seconds (10000 milliseconds)
+                
                 cursor.execute("SET statement_timeout = 10000")
                 
-                # Get total count for pagination with filters
+                
                 count_query = f"""
                     SELECT COUNT(*) 
                     FROM project_management.external_project_details epd
@@ -468,7 +468,7 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get paginated data with filters
+                
                 data_query = f"""
                     SELECT 
                         epd.project_id,
@@ -496,10 +496,10 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset statement timeout to default
+                
                 cursor.execute("RESET statement_timeout")
                 
-            # Process data to handle None values and dates
+            
             for item in data:
                 for key, value in item.items():
                     if value is None:
@@ -507,7 +507,7 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                     elif isinstance(value, datetime.date):
                         item[key] = value.isoformat()
             
-            # Create pagination response
+            
             total_pages = (total_count + page_size - 1) // page_size
             response_data = {
                 'count': total_count,
@@ -536,7 +536,7 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """Override list to include project details with specific columns and filtering"""
         try:
-            # Get pagination parameters
+            
             page = request.query_params.get('page', 1)
             try:
                 page = int(page)
@@ -546,14 +546,14 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
             page_size = 10
             offset = (page - 1) * page_size
             
-            # Get filter parameters
+            
             project_name = request.query_params.get('project_name', '')
             approval_id = request.query_params.get('approval_id', '')
             employee_id = request.query_params.get('employee_id', '')
             dept_id = request.query_params.get('dept_id', '')
             status = request.query_params.get('status', '')
             
-            # Build filter conditions
+            
             filter_conditions = []
             filter_params = []
             
@@ -570,34 +570,34 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 filter_params.append(f"%{employee_id}%")
             
             if dept_id:
-                filter_conditions.append("d.dept_name ILIKE %s")  # Changed from ipr.dept_id to d.dept_name
+                filter_conditions.append("d.dept_name ILIKE %s")  
                 filter_params.append(f"%{dept_id}%")
             
             if status:
                 filter_conditions.append("ipd.intrnl_project_status ILIKE %s")
                 filter_params.append(f"%{status}%")
             
-            # Build WHERE clause
+            
             where_clause = ""
             if filter_conditions:
                 where_clause = "WHERE " + " AND ".join(filter_conditions)
             else:
-                where_clause = "WHERE 1=1"  # Always true condition if no other filters
+                where_clause = "WHERE 1=1"  
             
-            # Check if is_archived column exists
+            
             has_is_archived = column_exists('internal_project_request', 'is_archived')
             
-            # Add archive filter only if column exists
+            
             archive_filter = ""
             if has_is_archived:
                 archive_filter = "AND (ipr.is_archived IS NULL OR ipr.is_archived = FALSE)"
             
-            # Execute query with pagination and filters
+            
             with connection.cursor() as cursor:
-                # Set statement timeout to 10 seconds (10000 milliseconds)
+                
                 cursor.execute("SET statement_timeout = 10000")
                 
-                # Get total count for pagination with filters
+                
                 count_query = f"""
                     SELECT COUNT(*) 
                     FROM project_management.internal_project_request ipr
@@ -612,7 +612,7 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get paginated data with filters
+                
                 data_query = f"""
                     SELECT 
                         ipr.project_request_id, 
@@ -639,10 +639,10 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset statement timeout to default
+                
                 cursor.execute("RESET statement_timeout")
                 
-            # Process data to handle None values and dates
+            
             for item in data:
                 for key, value in item.items():
                     if value is None:
@@ -650,7 +650,7 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                     elif isinstance(value, datetime.date):
                         item[key] = value.isoformat()
             
-            # Create pagination response
+            
             total_pages = (total_count + page_size - 1) // page_size
             response_data = {
                 'count': total_count,
@@ -701,7 +701,7 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """Override list to include all columns from internal_project_details with filtering"""
         try:
-            # Get pagination parameters
+            
             page = request.query_params.get('page', 1)
             try:
                 page = int(page)
@@ -711,13 +711,13 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
             page_size = 10
             offset = (page - 1) * page_size
             
-            # Get filter parameters
+            
             project_name = request.query_params.get('project_name', '')
             approval_id = request.query_params.get('approval_id', '')
             employee_id = request.query_params.get('employee_id', '')
             status = request.query_params.get('status', '')
             
-            # Build filter conditions
+            
             filter_conditions = []
             filter_params = []
             
@@ -737,27 +737,27 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 filter_conditions.append("ipd.intrnl_project_status ILIKE %s")
                 filter_params.append(f"%{status}%")
             
-            # Build WHERE clause
+            
             where_clause = ""
             if filter_conditions:
                 where_clause = "WHERE " + " AND ".join(filter_conditions)
             else:
-                where_clause = "WHERE 1=1"  # Always true condition if no other filters
+                where_clause = "WHERE 1=1"  
             
-            # Check if is_archived column exists
+            
             has_is_archived = column_exists('internal_project_details', 'is_archived')
             
-            # Add archive filter only if column exists
+            
             archive_filter = ""
             if has_is_archived:
                 archive_filter = "AND (ipd.is_archived IS NULL OR ipd.is_archived = FALSE)"
             
-            # Execute query with pagination and filters
+            
             with connection.cursor() as cursor:
-                # Set statement timeout to 10 seconds (10000 milliseconds)
+                
                 cursor.execute("SET statement_timeout = 10000")
                 
-                # Get total count for pagination with filters
+                
                 count_query = f"""
                     SELECT COUNT(*) 
                     FROM project_management.internal_project_details ipd
@@ -770,7 +770,7 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get paginated data with filters
+                
                 data_query = f"""
                     SELECT 
                         ipd.intrnl_project_id,
@@ -798,10 +798,10 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset statement timeout to default
+                
                 cursor.execute("RESET statement_timeout")
                 
-            # Process data to handle None values and dates
+            
             for item in data:
                 for key, value in item.items():
                     if value is None:
@@ -809,7 +809,7 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                     elif isinstance(value, datetime.date):
                         item[key] = value.isoformat()
             
-            # Create pagination response
+            
             total_pages = (total_count + page_size - 1) // page_size
             response_data = {
                 'count': total_count,
@@ -832,12 +832,12 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def warranty_list(self, request):
         try:
-            # Get filter parameters
+            
             project_id = request.query_params.get('project_id', '')
             project_name = request.query_params.get('project_name', '')
             warranty_status = request.query_params.get('warranty_status', '')
             
-            # Build filter conditions
+            
             filter_conditions = []
             filter_params = []
             
@@ -853,23 +853,23 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
                 filter_conditions.append("d.warranty_status ILIKE %s")
                 filter_params.append(f"%{warranty_status}%")
             
-            # Build WHERE clause
+            
             where_clause = ""
             if filter_conditions:
                 where_clause = "WHERE " + " AND ".join(filter_conditions)
             else:
-                where_clause = "WHERE 1=1"  # Always true condition if no other filters
+                where_clause = "WHERE 1=1"  
             
-            # Check if is_archived column exists
+            
             has_is_archived = column_exists('external_project_details', 'is_archived')
             
-            # Add archive filter only if column exists
+            
             archive_filter = ""
             if has_is_archived:
                 archive_filter = "AND (d.is_archived IS NULL OR d.is_archived = FALSE)"
             
             with connection.cursor() as cursor:
-                # Set statement timeout to 10 seconds (10000 milliseconds)
+                
                 cursor.execute("SET statement_timeout = 10000")
                 
                 query = f"""
@@ -891,10 +891,10 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
                 cursor.execute(query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset statement timeout to default
+                
                 cursor.execute("RESET statement_timeout")
                 
-            # Process data to handle None values and dates
+            
             for item in data:
                 for key, value in item.items():
                     if value is None:
@@ -909,3 +909,390 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
                 {"error": f"Failed to fetch warranty data: {str(e)}"},
                 status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+
+def restore_external_request(request_id, user_id=None):
+    """Restore an archived external project request and its related data"""
+    with connection.cursor() as cursor:
+        try:
+            # Check if the request exists in the archive
+            cursor.execute("""
+                SELECT * FROM project_management.archived_external_project_request
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            if cursor.fetchone() is None:
+                return False, "Request not found in archive"
+            
+            # Update the original records to remove archived flag
+            cursor.execute("""
+                UPDATE project_management.external_project_request
+                SET is_archived = FALSE
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            cursor.execute("""
+                UPDATE project_management.external_project_details
+                SET is_archived = FALSE
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            # Delete the data from archive tables
+            cursor.execute("""
+                DELETE FROM project_management.archived_external_project_details
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            cursor.execute("""
+                DELETE FROM project_management.archived_external_project_request
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            # Log the restore action
+            cursor.execute("""
+                INSERT INTO project_management.restore_log
+                (item_id, item_type, restored_by, restore_date)
+                VALUES (%s, 'external_request', %s, CURRENT_TIMESTAMP)
+                ON CONFLICT DO NOTHING
+            """, [request_id, user_id])
+            
+            return True, "Successfully restored external request"
+        except Exception as e:
+            logger.error(f"Error restoring external request: {str(e)}")
+            return False, str(e)
+
+def restore_internal_request(request_id, user_id=None):
+    """Restore an archived internal project request and its related data"""
+    with connection.cursor() as cursor:
+        try:
+            # Check if the request exists in the archive
+            cursor.execute("""
+                SELECT * FROM project_management.archived_internal_project_request
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            if cursor.fetchone() is None:
+                return False, "Request not found in archive"
+            
+            # Update the original records to remove archived flag
+            cursor.execute("""
+                UPDATE project_management.internal_project_request
+                SET is_archived = FALSE
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            cursor.execute("""
+                UPDATE project_management.internal_project_details
+                SET is_archived = FALSE
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            # Delete the data from archive tables
+            cursor.execute("""
+                DELETE FROM project_management.archived_internal_project_details
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            cursor.execute("""
+                DELETE FROM project_management.archived_internal_project_request
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            # Log the restore action
+            cursor.execute("""
+                INSERT INTO project_management.restore_log
+                (item_id, item_type, restored_by, restore_date)
+                VALUES (%s, 'internal_request', %s, CURRENT_TIMESTAMP)
+                ON CONFLICT DO NOTHING
+            """, [request_id, user_id])
+            
+            return True, "Successfully restored internal request"
+        except Exception as e:
+            logger.error(f"Error restoring internal request: {str(e)}")
+            return False, str(e)
+
+
+
+class ArchivedProjectsViewSet(viewsets.ViewSet):
+    """ViewSet for managing archived projects"""
+    pagination_class = StandardResultsSetPagination
+    
+    def get_paginated_response(self, data):
+        """Return a paginated response using the pagination class"""
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(data, self.request)
+        return paginator.get_paginated_response(page if page is not None else data)
+    
+    @action(detail=False, methods=['get'])
+    def external_requests(self, request):
+        """Get archived external project requests"""
+        try:
+            
+            page = request.query_params.get('page', 1)
+            try:
+                page = int(page)
+            except ValueError:
+                page = 1
+            
+            page_size = 10
+            offset = (page - 1) * page_size
+            
+            
+            project_name = request.query_params.get('project_name', '')
+            approval_id = request.query_params.get('approval_id', '')
+            
+            
+            filter_conditions = []
+            filter_params = []
+            
+            if project_name:
+                filter_conditions.append("a.ext_project_name ILIKE %s")
+                filter_params.append(f"%{project_name}%")
+            
+            if approval_id:
+                filter_conditions.append("a.approval_id ILIKE %s")
+                filter_params.append(f"%{approval_id}%")
+            
+            
+            where_clause = ""
+            if filter_conditions:
+                where_clause = "WHERE " + " AND ".join(filter_conditions)
+            else:
+                where_clause = "WHERE 1=1"  
+            
+            with connection.cursor() as cursor:
+                
+                count_query = f"""
+                    SELECT COUNT(*) 
+                    FROM project_management.archived_external_project_request a
+                    {where_clause}
+                """
+                cursor.execute(count_query, filter_params)
+                total_count = cursor.fetchone()[0]
+                
+                
+                data_query = f"""
+                    SELECT 
+                        a.ext_project_request_id,
+                        a.ext_project_name AS project_name,
+                        a.approval_id,
+                        a.item_id,
+                        a.archived_date,
+                        d.project_status,
+                        d.start_date
+                    FROM 
+                        project_management.archived_external_project_request a
+                    LEFT JOIN 
+                        project_management.archived_external_project_details d
+                        ON a.ext_project_request_id = d.ext_project_request_id
+                    {where_clause}
+                    ORDER BY a.archived_date DESC
+                    LIMIT {page_size} OFFSET {offset}
+                """
+                cursor.execute(data_query, filter_params)
+                data = dictfetchall(cursor)
+                
+            
+            for item in data:
+                for key, value in item.items():
+                    if value is None:
+                        item[key] = 'N/A'
+                    elif isinstance(value, datetime.datetime) or isinstance(value, datetime.date):
+                        item[key] = value.isoformat()
+            
+            
+            total_pages = (total_count + page_size - 1) // page_size
+            response_data = {
+                'count': total_count,
+                'next': f'/api/project-management/archived-projects/external_requests/?page={page+1}' if page < total_pages else None,
+                'previous': f'/api/project-management/archived-projects/external_requests/?page={page-1}' if page > 1 else None,
+                'results': data
+            }
+                
+            return Response(response_data)
+        except Exception as e:
+            logger.error(f"Error fetching archived external requests: {str(e)}")
+            return Response(
+                {"error": f"Failed to fetch archived external requests: {str(e)}"},
+                status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'])
+    def internal_requests(self, request):
+        """Get archived internal project requests"""
+        try:
+            
+            page = request.query_params.get('page', 1)
+            try:
+                page = int(page)
+            except ValueError:
+                page = 1
+            
+            page_size = 10
+            offset = (page - 1) * page_size
+            
+            
+            project_name = request.query_params.get('project_name', '')
+            
+            
+            filter_conditions = []
+            filter_params = []
+            
+            if project_name:
+                filter_conditions.append("a.project_name ILIKE %s")
+                filter_params.append(f"%{project_name}%")
+            
+            
+            where_clause = ""
+            if filter_conditions:
+                where_clause = "WHERE " + " AND ".join(filter_conditions)
+            else:
+                where_clause = "WHERE 1=1"  
+            
+            with connection.cursor() as cursor:
+                
+                count_query = f"""
+                    SELECT COUNT(*) 
+                    FROM project_management.archived_internal_project_request a
+                    {where_clause}
+                """
+                cursor.execute(count_query, filter_params)
+                total_count = cursor.fetchone()[0]
+                
+                
+                data_query = f"""
+                    SELECT 
+                        a.project_request_id,
+                        a.project_name,
+                        a.request_date,
+                        a.employee_id,
+                        a.dept_id,
+                        a.archived_date,
+                        d.approval_id,
+                        d.intrnl_project_status AS project_status
+                    FROM 
+                        project_management.archived_internal_project_request a
+                    LEFT JOIN 
+                        project_management.archived_internal_project_details d
+                        ON a.project_request_id = d.project_request_id
+                    {where_clause}
+                    ORDER BY a.archived_date DESC
+                    LIMIT {page_size} OFFSET {offset}
+                """
+                cursor.execute(data_query, filter_params)
+                data = dictfetchall(cursor)
+                
+            
+            for item in data:
+                for key, value in item.items():
+                    if value is None:
+                        item[key] = 'N/A'
+                    elif isinstance(value, datetime.datetime) or isinstance(value, datetime.date):
+                        item[key] = value.isoformat()
+            
+            
+            total_pages = (total_count + page_size - 1) // page_size
+            response_data = {
+                'count': total_count,
+                'next': f'/api/project-management/archived-projects/internal_requests/?page={page+1}' if page < total_pages else None,
+                'previous': f'/api/project-management/archived-projects/internal_requests/?page={page-1}' if page > 1 else None,
+                'results': data
+            }
+                
+            return Response(response_data)
+        except Exception as e:
+            logger.error(f"Error fetching archived internal requests: {str(e)}")
+            return Response(
+                {"error": f"Failed to fetch archived internal requests: {str(e)}"},
+                status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def restore_external(self, request):
+        """Restore archived external project requests"""
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=drf_status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user_id = request.user.id if request.user.is_authenticated else None
+            
+            success_count = 0
+            failed_ids = []
+            messages = []
+            
+            for request_id in ids:
+                success, message = restore_external_request(request_id, user_id)
+                if success:
+                    success_count += 1
+                else:
+                    failed_ids.append(request_id)
+                    messages.append(f"ID {request_id}: {message}")
+            
+            return Response({
+                "message": f"Successfully restored {success_count} of {len(ids)} requests",
+                "success_count": success_count,
+                "total_count": len(ids),
+                "failed_ids": failed_ids,
+                "error_messages": messages if failed_ids else []
+            })
+        except Exception as e:
+            logger.error(f"Error in restore_external: {str(e)}")
+            return Response(
+                {"error": f"Failed to restore requests: {str(e)}"},
+                status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'])
+    def restore_internal(self, request):
+        """Restore archived internal project requests"""
+        ids = request.data.get('ids', [])
+        if not ids:
+            return Response({"error": "No IDs provided"}, status=drf_status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user_id = request.user.id if request.user.is_authenticated else None
+            
+            success_count = 0
+            failed_ids = []
+            messages = []
+            
+            for request_id in ids:
+                success, message = restore_internal_request(request_id, user_id)
+                if success:
+                    success_count += 1
+                else:
+                    failed_ids.append(request_id)
+                    messages.append(f"ID {request_id}: {message}")
+            
+            return Response({
+                "message": f"Successfully restored {success_count} of {len(ids)} requests",
+                "success_count": success_count,
+                "total_count": len(ids),
+                "failed_ids": failed_ids,
+                "error_messages": messages if failed_ids else []
+            })
+        except Exception as e:
+            logger.error(f"Error in restore_internal: {str(e)}")
+            return Response(
+                {"error": f"Failed to restore requests: {str(e)}"},
+                status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+def setup_restore_log():
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS project_management.restore_log (
+                log_id SERIAL PRIMARY KEY,
+                item_id VARCHAR(255) NOT NULL,
+                item_type VARCHAR(50) NOT NULL,
+                restored_by VARCHAR(255),
+                restore_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(item_id, item_type)
+            )
+        """)
+
+
+setup_restore_log()

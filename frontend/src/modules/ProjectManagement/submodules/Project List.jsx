@@ -1,4 +1,5 @@
-// Project List.jsx
+// Updated Project List.jsx with archived projects view and restore functionality
+
 import React, { useState, useEffect } from "react";
 import "../styles/Project List.css";
 import axios from 'axios';
@@ -48,6 +49,19 @@ const ProjectList = () => {
   const [loadingExternal, setLoadingExternal] = useState(true);
   const [loadingInternalDetails, setLoadingInternalDetails] = useState(true);
   const [loadingExternalDetails, setLoadingExternalDetails] = useState(true);
+
+  // New state for archived projects
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [archivedNav, setArchivedNav] = useState("Internal Archived");
+  const [archivedInternalRequests, setArchivedInternalRequests] = useState([]);
+  const [archivedExternalRequests, setArchivedExternalRequests] = useState([]);
+  const [loadingArchivedInternal, setLoadingArchivedInternal] = useState(true);
+  const [loadingArchivedExternal, setLoadingArchivedExternal] = useState(true);
+  const [archivedInternalPage, setArchivedInternalPage] = useState(1);
+  const [archivedExternalPage, setArchivedExternalPage] = useState(1);
+  const [archivedInternalPagination, setArchivedInternalPagination] = useState({});
+  const [archivedExternalPagination, setArchivedExternalPagination] = useState({});
+  const [selectedArchivedRequests, setSelectedArchivedRequests] = useState([]);
 
   // API base URL
   const API_URL = '/api/project-management';
@@ -168,6 +182,57 @@ const ProjectList = () => {
     }
   };
 
+  // New functions for archived data
+  const fetchArchivedInternalRequests = async (page = 1) => {
+    setLoadingArchivedInternal(true);
+    try {
+      const response = await axios.get(`${API_URL}/archived-projects/internal_requests/?page=${page}`);
+      console.log('Archived internal requests data:', response.data);
+      setArchivedInternalRequests(response.data.results || []);
+      setArchivedInternalPagination({
+        count: response.data.count,
+        next: response.data.next,
+        previous: response.data.previous
+      });
+      setArchivedInternalPage(page);
+      return true;
+    } catch (err) {
+      console.error('Error loading archived internal requests:', err);
+      if (err.response && err.response.status === 404) {
+        setArchivedInternalPage(1);
+        return fetchArchivedInternalRequests(1);
+      }
+      return false;
+    } finally {
+      setLoadingArchivedInternal(false);
+    }
+  };
+
+  const fetchArchivedExternalRequests = async (page = 1) => {
+    setLoadingArchivedExternal(true);
+    try {
+      const response = await axios.get(`${API_URL}/archived-projects/external_requests/?page=${page}`);
+      console.log('Archived external requests data:', response.data);
+      setArchivedExternalRequests(response.data.results || []);
+      setArchivedExternalPagination({
+        count: response.data.count,
+        next: response.data.next,
+        previous: response.data.previous
+      });
+      setArchivedExternalPage(page);
+      return true;
+    } catch (err) {
+      console.error('Error loading archived external requests:', err);
+      if (err.response && err.response.status === 404) {
+        setArchivedExternalPage(1);
+        return fetchArchivedExternalRequests(1);
+      }
+      return false;
+    } finally {
+      setLoadingArchivedExternal(false);
+    }
+  };
+
   // Initial data loading
   useEffect(() => {
     const loadInitialData = async () => {
@@ -178,10 +243,18 @@ const ProjectList = () => {
       
       // Load data based on current view
       if (showProjectRequestList) {
-        if (selectedNav === "Internal Request") {
-          success = await fetchInternalRequests();
+        if (showArchivedProjects) {
+          if (archivedNav === "Internal Archived") {
+            success = await fetchArchivedInternalRequests();
+          } else {
+            success = await fetchArchivedExternalRequests();
+          }
         } else {
-          success = await fetchExternalRequests();
+          if (selectedNav === "Internal Request") {
+            success = await fetchInternalRequests();
+          } else {
+            success = await fetchExternalRequests();
+          }
         }
       } else {
         if (selectedNavdetails === "Internal Details") {
@@ -209,7 +282,7 @@ const ProjectList = () => {
     }, 15000);
     
     return () => clearTimeout(timer);
-  }, [selectedNav, selectedNavdetails, showProjectRequestList]);
+  }, [selectedNav, selectedNavdetails, showProjectRequestList, showArchivedProjects, archivedNav]);
 
   // Handle navigation click
   const handleNavClick = (nav) => {
@@ -239,6 +312,12 @@ const ProjectList = () => {
     const updatedSelection = [...selectedRequests];
     updatedSelection[index] = !updatedSelection[index];
     setSelectedRequests(updatedSelection);
+  };
+
+  const handleArchivedCheckboxChange = (index) => {
+    const updatedSelection = [...selectedArchivedRequests];
+    updatedSelection[index] = !updatedSelection[index];
+    setSelectedArchivedRequests(updatedSelection);
   };
 
   const handleArchiveRequests = async () => {
@@ -278,6 +357,43 @@ const ProjectList = () => {
     }
   };
 
+  const handleRestoreRequests = async () => {
+    try {
+      const selectedIds = [];
+      
+      if (archivedNav === "Internal Archived") {
+        archivedInternalRequests.forEach((item, index) => {
+          if (selectedArchivedRequests[index]) {
+            selectedIds.push(item.project_request_id);
+          }
+        });
+        
+        if (selectedIds.length > 0) {
+          await axios.post(`${API_URL}/archived-projects/restore_internal/`, { ids: selectedIds });
+          // Refresh data after restoring
+          fetchArchivedInternalRequests(archivedInternalPage);
+        }
+      } else if (archivedNav === "External Archived") {
+        archivedExternalRequests.forEach((item, index) => {
+          if (selectedArchivedRequests[index]) {
+            selectedIds.push(item.ext_project_request_id);
+          }
+        });
+        
+        if (selectedIds.length > 0) {
+          await axios.post(`${API_URL}/archived-projects/restore_external/`, { ids: selectedIds });
+          // Refresh data after restoring
+          fetchArchivedExternalRequests(archivedExternalPage);
+        }
+      }
+      
+      setSelectedArchivedRequests([]);
+    } catch (err) {
+      console.error('Failed to restore requests:', err);
+      setError('Failed to restore selected items');
+    }
+  };
+
   const handleBackClick = () => {
     setShowProjectRequestList(true);
   };
@@ -307,6 +423,12 @@ const ProjectList = () => {
         break;
       case 'externalDetails':
         fetchExternalDetails(newPage);
+        break;
+      case 'archivedInternal':
+        fetchArchivedInternalRequests(newPage);
+        break;
+      case 'archivedExternal':
+        fetchArchivedExternalRequests(newPage);
         break;
       default:
         break;
@@ -363,8 +485,43 @@ const ProjectList = () => {
     setShowFilter(false);
   };
 
+  // Toggle between active and archived projects
+  const toggleArchivedView = () => {
+    setShowArchivedProjects(!showArchivedProjects);
+    setSelectedRequests([]);
+    setSelectedArchivedRequests([]);
+    
+    if (!showArchivedProjects) {
+      // Switching to archived view
+      if (archivedNav === "Internal Archived") {
+        fetchArchivedInternalRequests();
+      } else {
+        fetchArchivedExternalRequests();
+      }
+    } else {
+      // Switching to active view
+      if (selectedNav === "Internal Request") {
+        fetchInternalRequests();
+      } else {
+        fetchExternalRequests();
+      }
+    }
+  };
+
+  // Handle archived navigation
+  const handleArchivedNavClick = (nav) => {
+    setArchivedNav(nav);
+    setSelectedArchivedRequests([]);
+    
+    if (nav === "Internal Archived") {
+      fetchArchivedInternalRequests(archivedInternalPage);
+    } else {
+      fetchArchivedExternalRequests(archivedExternalPage);
+    }
+  };
+
   // Show loading indicator while initial data is being fetched
-  if (loading && (loadingInternal && loadingExternal)) {
+  if (loading && (loadingInternal && loadingExternal && loadingArchivedInternal && loadingArchivedExternal)) {
     return (
       <div className="project-list-container">
         <div className="content-wrapper">
@@ -379,6 +536,7 @@ const ProjectList = () => {
 
   // Check if any requests are selected
   const hasSelectedRequests = selectedRequests.some(selected => selected);
+  const hasSelectedArchivedRequests = selectedArchivedRequests.some(selected => selected);
 
   // Pagination component
   const Pagination = ({ type, currentPage, pagination }) => {
@@ -543,7 +701,9 @@ const ProjectList = () => {
         {showProjectRequestList ? (
           <>
             <div className="header-section">
-              <h1 className="page-title">Project Request Management</h1>
+              <h1 className="page-title">
+                {showArchivedProjects ? "Archived Projects" : "Project Request Management"}
+              </h1>
               
               <div className="status-indicators">
                 <span className="status-indicator approved">
@@ -561,16 +721,32 @@ const ProjectList = () => {
               </div>
               
               <div className="action-buttons">
-                <button className="btn btn-filter" onClick={toggleFilter}>
-                  <i className="filter-icon"></i>
-                  Filter Projects
+                <button className="btn btn-secondary" onClick={toggleArchivedView}>
+                  {showArchivedProjects ? "View Active Projects" : "View Archived Projects"}
                 </button>
-                {hasSelectedRequests && (
-                  <button className="btn btn-warning" onClick={handleArchiveRequests}>
-                    <i className="archive-icon"></i>
-                    Archive Selected
+                
+                {!showArchivedProjects && (
+                  <>
+                    <button className="btn btn-filter" onClick={toggleFilter}>
+                      <i className="filter-icon"></i>
+                      Filter Projects
+                    </button>
+                    {hasSelectedRequests && (
+                      <button className="btn btn-warning" onClick={handleArchiveRequests}>
+                        <i className="archive-icon"></i>
+                        Archive Selected
+                      </button>
+                    )}
+                  </>
+                )}
+                
+                {showArchivedProjects && hasSelectedArchivedRequests && (
+                  <button className="btn btn-success" onClick={handleRestoreRequests}>
+                    <i className="restore-icon"></i>
+                    Restore Selected
                   </button>
                 )}
+                
                 <button className="btn btn-primary" onClick={handleProjectRequestDetailsClick}>
                   <i className="details-icon"></i>
                   View Project Details
@@ -578,25 +754,45 @@ const ProjectList = () => {
               </div>
             </div>
 
-            <FilterPanel />
+            {!showArchivedProjects && <FilterPanel />}
 
             <div className="tab-navigation">
-              <button
-                className={`tab-button ${selectedNav === "Internal Request" ? "active" : ""}`}
-                onClick={() => handleNavClick("Internal Request")}
-              >
-                Internal Requests
-              </button>
-              <button
-                className={`tab-button ${selectedNav === "External Request" ? "active" : ""}`}
-                onClick={() => handleNavClick("External Request")}
-              >
-                External Requests
-              </button>
+              {showArchivedProjects ? (
+                <>
+                  <button
+                    className={`tab-button ${archivedNav === "Internal Archived" ? "active" : ""}`}
+                    onClick={() => handleArchivedNavClick("Internal Archived")}
+                  >
+                    Archived Internal Requests
+                  </button>
+                  <button
+                    className={`tab-button ${archivedNav === "External Archived" ? "active" : ""}`}
+                    onClick={() => handleArchivedNavClick("External Archived")}
+                  >
+                    Archived External Requests
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className={`tab-button ${selectedNav === "Internal Request" ? "active" : ""}`}
+                    onClick={() => handleNavClick("Internal Request")}
+                  >
+                    Internal Requests
+                  </button>
+                  <button
+                    className={`tab-button ${selectedNav === "External Request" ? "active" : ""}`}
+                    onClick={() => handleNavClick("External Request")}
+                  >
+                    External Requests
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="table-container">
-              {selectedNav === "Internal Request" && (
+              {/* Active Internal Requests */}
+              {!showArchivedProjects && selectedNav === "Internal Request" && (
                 <div className="data-table-wrapper">
                   {loadingInternal ? (
                     <div className="loading-message">
@@ -606,18 +802,18 @@ const ProjectList = () => {
                   ) : (
                     <>
                       <table className="data-table">
-                      <thead>
-  <tr>
-    <th className="select-col"></th>
-    <th>Project Request ID</th>
-    <th>Project Name</th>
-    <th>Approval ID</th>
-    <th>Request Date</th>
-    <th>Employee</th>
-    <th>Department</th> 
-    <th>Project Status</th>
-  </tr>
-</thead>
+                        <thead>
+                          <tr>
+                            <th className="select-col"></th>
+                            <th>Project Request ID</th>
+                            <th>Project Name</th>
+                            <th>Approval ID</th>
+                            <th>Request Date</th>
+                            <th>Employee</th>
+                            <th>Department</th> 
+                            <th>Project Status</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           {internalRequests.length > 0 ? (
                             internalRequests.map((item, index) => (
@@ -661,7 +857,8 @@ const ProjectList = () => {
                 </div>
               )}
 
-              {selectedNav === "External Request" && (
+              {/* Active External Requests */}
+              {!showArchivedProjects && selectedNav === "External Request" && (
                 <div className="data-table-wrapper">
                   {loadingExternal ? (
                     <div className="loading-message">
@@ -718,6 +915,140 @@ const ProjectList = () => {
                         type="externalRequests" 
                         currentPage={externalRequestsPage} 
                         pagination={externalRequestsPagination} 
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Archived Internal Requests */}
+              {showArchivedProjects && archivedNav === "Internal Archived" && (
+                <div className="data-table-wrapper">
+                  {loadingArchivedInternal ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading archived internal request data...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th className="select-col"></th>
+                            <th>Project Request ID</th>
+                            <th>Project Name</th>
+                            <th>Approval ID</th>
+                            <th>Request Date</th>
+                            <th>Employee ID</th>
+                            <th>Department ID</th>
+                            <th>Project Status</th>
+                            <th>Archived Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {archivedInternalRequests.length > 0 ? (
+                            archivedInternalRequests.map((item, index) => (
+                              <tr key={index}>
+                                <td className="select-col">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedArchivedRequests[index] || false}
+                                    onChange={() => handleArchivedCheckboxChange(index)}
+                                  />
+                                </td>
+                                <td>{item.project_request_id}</td>
+                                <td>{item.project_name}</td>
+                                <td>{item.approval_id}</td>
+                                <td>{item.request_date}</td>
+                                <td>{item.employee_id}</td>
+                                <td>{item.dept_id}</td>
+                                <td>
+                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                    {item.project_status || 'Pending'}
+                                  </span>
+                                </td>
+                                <td>{item.archived_date}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="9" className="no-data">
+                                No archived internal request data available
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      <Pagination 
+                        type="archivedInternal" 
+                        currentPage={archivedInternalPage} 
+                        pagination={archivedInternalPagination} 
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Archived External Requests */}
+              {showArchivedProjects && archivedNav === "External Archived" && (
+                <div className="data-table-wrapper">
+                  {loadingArchivedExternal ? (
+                    <div className="loading-message">
+                      <div className="spinner"></div>
+                      <p>Loading archived external request data...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th className="select-col"></th>
+                            <th>Project Request ID</th>
+                            <th>Project Name</th>
+                            <th>Approval ID</th>
+                            <th>Item ID</th>
+                            <th>Start Date</th>
+                            <th>Project Status</th>
+                            <th>Archived Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {archivedExternalRequests.length > 0 ? (
+                            archivedExternalRequests.map((item, index) => (
+                              <tr key={index}>
+                                <td className="select-col">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedArchivedRequests[index] || false}
+                                    onChange={() => handleArchivedCheckboxChange(index)}
+                                  />
+                                </td>
+                                <td>{item.ext_project_request_id}</td>
+                                <td>{item.project_name}</td>
+                                <td>{item.approval_id}</td>
+                                <td>{item.item_id}</td>
+                                <td>{item.start_date}</td>
+                                <td>
+                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                    {item.project_status || 'Pending'}
+                                  </span>
+                                </td>
+                                <td>{item.archived_date}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="8" className="no-data">
+                                No archived external request data available
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      <Pagination 
+                        type="archivedExternal" 
+                        currentPage={archivedExternalPage} 
+                        pagination={archivedExternalPagination}
                       />
                     </>
                   )}

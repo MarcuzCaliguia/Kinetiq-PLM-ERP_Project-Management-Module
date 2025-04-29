@@ -773,3 +773,253 @@ body {
   content: "🍆🍆🍆";
   margin-right: 5px;
 }
+
+/* Restore button styles */
+.btn-success {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+.restore-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+}
+
+/* Archived table styles */
+.archived-row {
+  background-color: #f8f9fa;
+}
+
+.archived-date {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Toggle view button */
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+/* Tab styling for archived view */
+.tab-button.active {
+  background-color: #f8f9fa;
+  color: #212529;
+  border-bottom: 2px solid #007bff;
+}
+
+.tab-navigation {
+  margin-bottom: 1rem;
+}
+
+/* Notification styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 500px;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification.success {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  color: #155724;
+}
+
+.notification.error {
+  background-color: #f8d7da;
+  border-left: 4px solid #dc3545;
+  color: #721c24;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notification-message {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
+
+.notification-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 12px;
+  font-weight: bold;
+}
+
+.success-icon {
+  background-color: #28a745;
+  color: white;
+}
+
+.error-icon {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Restore button styles */
+.btn-success {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}
+
+.restore-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M13 3a9 9 0 00-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21a9 9 0 000-18z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  vertical-align: middle;
+}
+
+/* Archived table styles */
+.archived-row {
+  background-color: #f8f9fa;
+}
+
+.archived-date {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Add this to your CSS file */
+
+/* Notification styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  min-width: 300px;
+  max-width: 500px;
+  padding: 15px;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: slide-in 0.3s ease-out forwards;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification.success {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  color: #155724;
+}
+
+.notification.error {
+  background-color: #f8d7da;
+  border-left: 4px solid #dc3545;
+  color: #721c24;
+}
+
+.notification-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notification-message {
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.7;
+}
+
+.notification-close:hover {
+  opacity: 1;
+}
