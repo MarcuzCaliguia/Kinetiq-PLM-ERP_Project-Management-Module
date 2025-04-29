@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from project_reports import api
-from project_reports import views as report_views  
+from project_reports import views as report_views
 from project_warranties import views as warranty_views
 
 router = DefaultRouter()
