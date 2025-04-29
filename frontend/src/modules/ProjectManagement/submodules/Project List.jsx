@@ -1,5 +1,4 @@
-// Updated Project List.jsx with archived projects view and restore functionality
-
+// Project List.jsx
 import React, { useState, useEffect } from "react";
 import "../styles/Project List.css";
 import axios from 'axios';
@@ -63,8 +62,34 @@ const ProjectList = () => {
   const [archivedExternalPagination, setArchivedExternalPagination] = useState({});
   const [selectedArchivedRequests, setSelectedArchivedRequests] = useState([]);
 
+  // Add notification state
+  const [notification, setNotification] = useState({
+    show: false,
+    message: '',
+    type: 'success' // or 'error'
+  });
+
   // API base URL
   const API_URL = '/api/project-management';
+
+  // Function to show notification
+  const showNotification = (message, type = 'success') => {
+    setNotification({
+      show: true,
+      message,
+      type
+    });
+    
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification(prev => ({...prev, show: false}));
+    }, 3000);
+  };
+
+  // Function to close notification
+  const closeNotification = () => {
+    setNotification(prev => ({...prev, show: false}));
+  };
 
   // Helper to build query string from filters
   const buildQueryString = (filters) => {
@@ -332,7 +357,9 @@ const ProjectList = () => {
         });
         
         if (selectedIds.length > 0) {
-          await axios.post(`${API_URL}/internal-requests/bulk_archive/`, { ids: selectedIds });
+          const response = await axios.post(`${API_URL}/internal-requests/bulk_archive/`, { ids: selectedIds });
+          // Show success notification
+          showNotification(`Successfully archived ${response.data.success_count} of ${response.data.total_count} requests`);
           // Refresh data after archiving
           fetchInternalRequests(internalRequestsPage);
         }
@@ -344,7 +371,9 @@ const ProjectList = () => {
         });
         
         if (selectedIds.length > 0) {
-          await axios.post(`${API_URL}/external-requests/bulk_archive/`, { ids: selectedIds });
+          const response = await axios.post(`${API_URL}/external-requests/bulk_archive/`, { ids: selectedIds });
+          // Show success notification
+          showNotification(`Successfully archived ${response.data.success_count} of ${response.data.total_count} requests`);
           // Refresh data after archiving
           fetchExternalRequests(externalRequestsPage);
         }
@@ -353,7 +382,7 @@ const ProjectList = () => {
       setSelectedRequests([]);
     } catch (err) {
       console.error('Failed to archive requests:', err);
-      setError('Failed to archive selected items');
+      showNotification('Failed to archive selected items', 'error');
     }
   };
 
@@ -369,9 +398,13 @@ const ProjectList = () => {
         });
         
         if (selectedIds.length > 0) {
-          await axios.post(`${API_URL}/archived-projects/restore_internal/`, { ids: selectedIds });
+          const response = await axios.post(`${API_URL}/archived-projects/restore_internal/`, { ids: selectedIds });
+          // Show success notification
+          showNotification(`Successfully restored ${response.data.success_count} of ${response.data.total_count} requests`);
           // Refresh data after restoring
           fetchArchivedInternalRequests(archivedInternalPage);
+          // Also refresh the main list if we're going to switch to it
+          fetchInternalRequests(internalRequestsPage);
         }
       } else if (archivedNav === "External Archived") {
         archivedExternalRequests.forEach((item, index) => {
@@ -381,16 +414,20 @@ const ProjectList = () => {
         });
         
         if (selectedIds.length > 0) {
-          await axios.post(`${API_URL}/archived-projects/restore_external/`, { ids: selectedIds });
+          const response = await axios.post(`${API_URL}/archived-projects/restore_external/`, { ids: selectedIds });
+          // Show success notification
+          showNotification(`Successfully restored ${response.data.success_count} of ${response.data.total_count} requests`);
           // Refresh data after restoring
           fetchArchivedExternalRequests(archivedExternalPage);
+          // Also refresh the main list if we're going to switch to it
+          fetchExternalRequests(externalRequestsPage);
         }
       }
       
       setSelectedArchivedRequests([]);
     } catch (err) {
       console.error('Failed to restore requests:', err);
-      setError('Failed to restore selected items');
+      showNotification('Failed to restore selected items', 'error');
     }
   };
 
@@ -537,6 +574,31 @@ const ProjectList = () => {
   // Check if any requests are selected
   const hasSelectedRequests = selectedRequests.some(selected => selected);
   const hasSelectedArchivedRequests = selectedArchivedRequests.some(selected => selected);
+
+  // Notification component
+  const Notification = () => {
+    if (!notification.show) return null;
+    
+    return (
+      <div className={`notification ${notification.type}`}>
+        <div className="notification-content">
+          {notification.type === 'success' && (
+            <span className="notification-icon success-icon">✓</span>
+          )}
+          {notification.type === 'error' && (
+            <span className="notification-icon error-icon">✕</span>
+          )}
+          <span className="notification-message">{notification.message}</span>
+          <button 
+            className="notification-close" 
+            onClick={closeNotification}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // Pagination component
   const Pagination = ({ type, currentPage, pagination }) => {
@@ -685,6 +747,9 @@ const ProjectList = () => {
 
   return (
     <div className="project-list-container">
+      {/* Add the notification component */}
+      <Notification />
+      
       {error && (
         <div className="error-message">
           <p>{error}</p>
@@ -967,7 +1032,7 @@ const ProjectList = () => {
                                     {item.project_status || 'Pending'}
                                   </span>
                                 </td>
-                                <td>{item.archived_date}</td>
+                                <td className="archived-date">{item.archived_date}</td>
                               </tr>
                             ))
                           ) : (
@@ -1033,7 +1098,7 @@ const ProjectList = () => {
                                     {item.project_status || 'Pending'}
                                   </span>
                                 </td>
-                                <td>{item.archived_date}</td>
+                                <td className="archived-date">{item.archived_date}</td>
                               </tr>
                             ))
                           ) : (
