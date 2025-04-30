@@ -8,7 +8,7 @@ const BodyContent = () => {
   const [newProjectID, setNewProjectID] = useState("");
   const [newBillofMaterials, setNewBillofMaterials] = useState("");
   const [newInternalprojectID, setNewInternalProjectid] = useState("");
-  const [newApprovalID, setNewApprovalID] = useState("");
+  const [selectedApprovalID, setSelectedApprovalID] = useState("");
   const [newLaborCost, setNewLaborCost] = useState("");
   const [newOutsourcedCost, setNewOutsourcedCost] = useState("");
   const [newUtilityCost, setNewUtilityCost] = useState("");
@@ -21,12 +21,17 @@ const BodyContent = () => {
   const [selectedReports, setSelectedReports] = useState([]);
   const [loading, setLoading]= useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
   
   // Determine if Internal Project ID field should be disabled
   const isInternalProjectIDDisabled = newProjectID && newProjectID.trim() !== "";
   
   // Determine if Project ID field should be disabled
   const isProjectIDDisabled = newInternalprojectID && newInternalprojectID.trim() !== "";
+  
+  // Determine if cost breakdown fields should be disabled
+  // Now cost breakdown fields will be disabled if Project ID has a value
+  const areCostBreakdownFieldsDisabled = newProjectID && newProjectID.trim() !== "";
   
   // Determine if other fields should be disabled (only if neither ID is provided)
   const areOtherFieldsDisabled = (!newProjectID || newProjectID.trim() === "") && 
@@ -37,7 +42,7 @@ const BodyContent = () => {
     setNewProjectID("");
     setNewBillofMaterials("");
     setNewInternalProjectid("");
-    setNewApprovalID("");
+    setSelectedApprovalID("");
     setNewLaborCost("");
     setNewOutsourcedCost("");
     setNewUtilityCost("");
@@ -48,6 +53,7 @@ const BodyContent = () => {
   const handleBackClick = () => {
     setShowProjectCosting(false);
     setCurrentForm(1);
+    setSelectedProject(null);
   };
 
   const handleSubmit = (e) => {
@@ -60,7 +66,7 @@ const BodyContent = () => {
       newProjectID,
       newBillofMaterials,
       newInternalprojectID,
-      newApprovalID,
+      newApprovalID: selectedApprovalID,
       newLaborCost,
       newOutsourcedCost,
       newUtilityCost,
@@ -93,6 +99,14 @@ const BodyContent = () => {
     } else {
       setSelectedReports([]);
     }
+  };
+
+  const handleRowClick = (project) => {
+    setSelectedProject(project);
+  };
+
+  const handleBackToList = () => {
+    setSelectedProject(null);
   };
 
   return (
@@ -137,6 +151,20 @@ const BodyContent = () => {
               />
             </div>
 
+            {/* Project Name */}
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Name</b>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Enter Project Name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+              />
+            </div>
+
             {/* Bill of Materials */}
             <div className="form-group">
               <label className="form-label">
@@ -152,21 +180,20 @@ const BodyContent = () => {
               />
             </div>
 
-            {/* Approval ID */}
             <div className="form-group">
-              <label className="form-label">
-                <b>Approval ID</b>
-              </label>
-              <div className="autocomplete-container">
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder="Enter Approval ID"
-                  value={newApprovalID}
-                  onChange={(e) => setNewApprovalID(e.target.value)}
-                  required
-                />
-              </div>
+              <label className="form-label"><b>Approval ID</b></label>
+              <select
+                name="ApprovalID"
+                className="form-input"
+                value={selectedApprovalID}
+                onChange={(e) => setSelectedApprovalID(e.target.value)}
+                required
+              >
+                <option value="">Insert Approval ID</option>
+                <option value="approved">Approve</option>
+                <option value="rejected">Reject</option>
+                <option value="pending">Pending</option>
+              </select>
             </div>
           </div>
 
@@ -186,7 +213,7 @@ const BodyContent = () => {
                   value={newLaborCost}
                   onChange={(e) => setNewLaborCost(e.target.value)}
                   required
-                  disabled={areOtherFieldsDisabled}
+                  disabled={areCostBreakdownFieldsDisabled}
                 />
               </div>
             </div>
@@ -205,7 +232,7 @@ const BodyContent = () => {
                   value={newUtilityCost}
                   onChange={(e) => setNewUtilityCost(e.target.value)}
                   required
-                  disabled={areOtherFieldsDisabled}
+                  disabled={areCostBreakdownFieldsDisabled}
                 />
               </div>
             </div>
@@ -224,7 +251,7 @@ const BodyContent = () => {
                   value={newOutsourcedCost}
                   onChange={(e) => setNewOutsourcedCost(e.target.value)}
                   required
-                  disabled={areOtherFieldsDisabled}
+                  disabled={areCostBreakdownFieldsDisabled}
                 />
               </div>
             </div>
@@ -243,7 +270,7 @@ const BodyContent = () => {
                   value={newOverallProjectCost}
                   onChange={(e) => setNewOverallProjectCost(e.target.value)}
                   required
-                  disabled={areOtherFieldsDisabled}
+                  disabled={areCostBreakdownFieldsDisabled}
                 />
               </div>
             </div>
@@ -257,7 +284,7 @@ const BodyContent = () => {
               <button 
                 type="submit" 
                 className="btn btn-primary" 
-                disabled={submitLoading || (areOtherFieldsDisabled)}
+                disabled={submitLoading || (areOtherFieldsDisabled && !areCostBreakdownFieldsDisabled)}
               >
                 <b>{submitLoading ? "Saving..." : "Save"}</b>
               </button>
@@ -266,7 +293,7 @@ const BodyContent = () => {
         </form>
       )}
 
-      {showProjectCosting && (
+      {showProjectCosting && !selectedProject && (
         <div className="report-list-container">
           <div className="list-header">
             <h1 className="list-title">
@@ -293,8 +320,6 @@ const BodyContent = () => {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th className="checkbox-column">
-                    </th>
                     <th><b>Project Name</b></th>
                     <th><b>Project ID</b></th>
                     <th><b>BOM ID</b></th>
@@ -304,9 +329,12 @@ const BodyContent = () => {
                 </thead>
                 <tbody>
                   {reportData.map((item, index) => (
-                    <tr key={index} className={selectedReports.includes(index) ? "selected" : ""}>
-                      <td className="checkbox-column">
-                      </td>
+                    <tr 
+                      key={index} 
+                      className={selectedReports.includes(index) ? "selected" : ""}
+                      onClick={() => handleRowClick(item)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <td><b>{item.newProjectName}</b></td>
                       <td><b>{item.newProjectID || item.newInternalprojectID}</b></td>
                       <td><b>{item.newBillofMaterials}</b></td>
@@ -317,6 +345,58 @@ const BodyContent = () => {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      )}
+
+      {showProjectCosting && selectedProject && (
+        <div className="project-detail-container">
+          <div className="detail-header">
+            <h1 className="detail-title">
+              <b>Project Details: {selectedProject.newProjectName}</b>
+            </h1>
+            <div className="detail-controls">
+              <button onClick={handleBackToList} className="btn btn-secondary">
+                <b>Back to List</b>
+              </button>
+            </div>
+          </div>
+          
+          {/* Project details content would go here */}
+          <div className="project-details-content">
+            <div className="details-grid">
+              <div className="detail-item">
+                <h3 className="detail-label">Project ID</h3>
+                <p className="detail-value">{selectedProject.newProjectID || selectedProject.newInternalprojectID}</p>
+              </div>
+              <div className="detail-item">
+                <h3 className="detail-label">Bill of Materials</h3>
+                <p className="detail-value">{selectedProject.newBillofMaterials}</p>
+              </div>
+              <div className="detail-item">
+                <h3 className="detail-label">Approval Status</h3>
+                <p className="detail-value">
+                  <span className="status-badge">{selectedProject.newApprovalID}</span>
+                </p>
+              </div>
+              
+              <div className="detail-item">
+                <h3 className="detail-label">Labor Cost</h3>
+                <p className="detail-value">₱{selectedProject.newLaborCost}</p>
+              </div>
+              <div className="detail-item">
+                <h3 className="detail-label">Utility Cost</h3>
+                <p className="detail-value">₱{selectedProject.newUtilityCost}</p>
+              </div>
+              <div className="detail-item">
+                <h3 className="detail-label">Outsourced Cost</h3>
+                <p className="detail-value">₱{selectedProject.newOutsourcedCost}</p>
+              </div>
+              <div className="detail-item">
+                <h3 className="detail-label">Overall Project Cost</h3>
+                <p className="detail-value">₱{selectedProject.newOverallProjectCost}</p>
+              </div>
+            </div>
           </div>
         </div>
       )}

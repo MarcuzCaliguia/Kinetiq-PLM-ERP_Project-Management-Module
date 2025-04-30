@@ -575,6 +575,87 @@
   margin-top: 2rem;
 }
 
+/* Project Detail Styles */
+.project-detail-container {
+  width: 100%;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.detail-title {
+  font-size: 1.5rem;
+  margin-bottom: 0;
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+.detail-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.project-details-content {
+  background-color: #f9fafa;
+  border-radius: var(--border-radius);
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  font-size: 0.9rem;
+  color: var(--dark-gray);
+  font-weight: 500;
+  margin: 0;
+}
+
+.detail-value {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+/* List Header */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.list-title {
+  font-size: 1.5rem;
+  margin-bottom: 0;
+  font-weight: bold;
+  color: var(--text-color);
+}
+
+.list-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 1024px) {
   .body-content-container {
@@ -607,12 +688,12 @@
     margin-top: 1rem;
   }
   
-  .list-header {
+  .list-header, .detail-header {
     flex-direction: column;
     align-items: flex-start;
   }
   
-  .list-controls {
+  .list-controls, .detail-controls {
     width: 100%;
     justify-content: flex-end;
     margin-top: 0.5rem;
@@ -623,7 +704,7 @@
     font-size: 0.85rem;
   }
   
-  .form-title, .list-title {
+  .form-title, .list-title, .detail-title {
     font-size: 1.5rem;
   }
   
@@ -631,6 +712,11 @@
   .button-group.back-button {
     margin-left: 0;
     order: -1; /* Move back button to top on mobile */
+  }
+  
+  .details-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 }
 
@@ -648,12 +734,12 @@
     width: 100%;
   }
   
-  .list-controls {
+  .list-controls, .detail-controls {
     flex-direction: column;
     gap: 0.5rem;
   }
   
-  .form-title, .list-title {
+  .form-title, .list-title, .detail-title {
     font-size: 1.25rem;
   }
   
