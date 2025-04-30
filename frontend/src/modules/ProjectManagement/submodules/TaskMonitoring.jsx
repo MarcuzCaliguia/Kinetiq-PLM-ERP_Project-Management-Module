@@ -492,13 +492,6 @@ const TaskMonitoring = () => {
 
             <div className="form-actions">
               <button 
-                type="button" 
-                className="secondary-button"
-                onClick={() => setShowTasklist(true)}
-              >
-                View Tasks
-              </button>
-              <button 
                 type="submit" 
                 className="primary-button"
                 disabled={loading}
