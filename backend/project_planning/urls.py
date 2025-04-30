@@ -30,4 +30,10 @@ urlpatterns = [
     path('add-external-project-cost-management/', views.add_external_project_cost_management, name='add-external-project-cost-management'),
     path('get-bom-ids-from-cost-management/', views.get_bom_ids_from_cost_management, name='get-bom-ids-from-cost-management'),
     path('get-budget-approval-ids-from-cost-management/', views.get_budget_approval_ids_from_cost_management, name='get-budget-approval-ids-from-cost-management'),
+    
+    # New Project Lists APIs
+    path('get-external-project-requests-list/', views.get_external_project_requests_list, name='get-external-project-requests-list'),
+    path('get-internal-project-requests-list/', views.get_internal_project_requests_list, name='get-internal-project-requests-list'),
+    path('get-external-approval-ids/', views.get_external_approval_ids, name='get-external-approval-ids'),
+    path('get-internal-approval-ids/', views.get_internal_approval_ids, name='get-internal-approval-ids'),
 ]

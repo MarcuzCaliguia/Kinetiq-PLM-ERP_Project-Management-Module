@@ -96,7 +96,6 @@ body {
   background-color: #f9fafc;
   padding: 0.75rem 1.25rem;
   border-radius: var(--border-radius);
-  border: 1px solid var(--border-color);
 }
 
 .status-indicator {
@@ -124,6 +123,36 @@ body {
 
 .status-indicator.ongoing .status-dot {
   background-color: var(--ongoing-color);
+}
+
+/* Status indicator dot styles for table rows */
+.status-col {
+  width: 40px;
+  text-align: center;
+}
+
+.status-indicator-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: inline-block;
+}
+
+.status-indicator-dot.approved {
+  background-color: var(--approved-color);
+}
+
+.status-indicator-dot.not-approved {
+  background-color: var(--not-approved-color);
+}
+
+.status-indicator-dot.ongoing {
+  background-color: var(--ongoing-color);
+}
+
+.status-indicator-dot.pending {
+  background-color: var(--pending-color);
 }
 
 /* Action Buttons */
@@ -770,8 +799,8 @@ body {
 }
 
 .archive-icon::before {
-  content: "🍆🍆🍆";
   margin-right: 5px;
+
 }
 
 /* Restore button styles */

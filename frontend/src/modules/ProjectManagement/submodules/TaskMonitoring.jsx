@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import "../styles/TaskMonitoring.css";
 import axios from 'axios';
 
-// Update the API URL to match your Django URL configuration
 const API_URL = '/project-tasks/api';
 const ITEMS_PER_PAGE = 5; // Number of items to show per page
 
@@ -81,7 +80,7 @@ const TaskMonitoring = () => {
           setCurrentPage2(1); // Reset to first page when switching
         }
       } catch (err) {
-        setError({ type: 'error', message: "Failed to load tasks. Please try again." });
+        setError("Failed to load tasks. Please try again.");
         console.error(err);
       } finally {
         setLoading(false);
@@ -174,10 +173,8 @@ const TaskMonitoring = () => {
       
       setShowTasklist(true);
       resetForm();
-      // Show success message
-      setError({ type: 'success', message: 'Task created successfully!' });
     } catch (err) {
-      setError({ type: 'error', message: `Failed to create task: ${err.response?.data?.detail || err.message}` });
+      setError(`Failed to create task: ${err.response?.data?.detail || err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -206,10 +203,8 @@ const TaskMonitoring = () => {
       
       setShowTasklist(true);
       resetForm();
-      // Show success message
-      setError({ type: 'success', message: 'Task created successfully!' });
     } catch (err) {
-      setError({ type: 'error', message: `Failed to create task: ${err.response?.data?.detail || err.message}` });
+      setError(`Failed to create task: ${err.response?.data?.detail || err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
@@ -259,9 +254,6 @@ const TaskMonitoring = () => {
         
         const updatedTasks = await fetchData(`${API_URL}/external-tasks/`, 'Error fetching external tasks');
         setTaskdata(Array.isArray(updatedTasks) ? updatedTasks : []);
-        
-        // Show success message
-        setError({ type: 'success', message: 'Tasks deleted successfully!' });
       } else {
         // Get the actual indices from the full data array
         const startIndex = (currentPage2 - 1) * ITEMS_PER_PAGE;
@@ -276,32 +268,29 @@ const TaskMonitoring = () => {
         
         const updatedTasks = await fetchData(`${API_URL}/internal-tasks/`, 'Error fetching internal tasks');
         setTaskdata2(Array.isArray(updatedTasks) ? updatedTasks : []);
-        
-        // Show success message
-        setError({ type: 'success', message: 'Tasks deleted successfully!' });
       }
       
       setSelectedReports([]);
     } catch (err) {
-      setError({ type: 'error', message: "Failed to delete tasks. Please try again." });
+      setError("Failed to delete tasks. Please try again.");
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
   
- 
+  // Get the current page data
   const currentData = selectedNavtask === "External Task" 
     ? getPaginatedData(taskdata, currentPage)
     : getPaginatedData(taskdata2, currentPage2);
   
-
+  // Get the current page number and total pages
   const currentPageNum = selectedNavtask === "External Task" ? currentPage : currentPage2;
   const totalPagesNum = selectedNavtask === "External Task" 
     ? totalPages(taskdata) 
     : totalPages(taskdata2);
   
- 
+  // Render a simple loading state if we're still loading initial data
   if (loading && !taskdata.length && !taskdata2.length) {
     return (
       <div className="task-monitoring-container">
@@ -336,8 +325,8 @@ const TaskMonitoring = () => {
       )}
 
       {error && (
-        <div className={`alert ${error.type === 'success' ? 'success-alert' : 'error-alert'}`}>
-          <span>{error.type === 'success' ? error.message : error.message || error}</span>
+        <div className="error-alert">
+          <span>{error}</span>
           <button onClick={() => setError(null)}>&times;</button>
         </div>
       )}
@@ -503,17 +492,10 @@ const TaskMonitoring = () => {
             <div className="form-actions">
               <button 
                 type="submit" 
-                className="primary-button save-task-button"
+                className="primary-button"
                 disabled={loading}
               >
-                {loading ? (
-                  <>
-                    <span className="loading-spinner-small"></span>
-                    Saving...
-                  </>
-                ) : (
-                  <>Save Task</>
-                )}
+                {loading ? "Saving..." : "Save Task"}
               </button>
             </div>
           </form>
@@ -534,14 +516,7 @@ const TaskMonitoring = () => {
                 className="danger-button"
                 disabled={selectedReports.length === 0 || loading}
               >
-                {loading ? (
-                  <>
-                    <span className="loading-spinner-small"></span>
-                    Removing...
-                  </>
-                ) : (
-                  <>Remove Selected</>
-                )}
+                {loading ? "Removing..." : "Remove Selected"}
               </button>
             </div>
           </div>

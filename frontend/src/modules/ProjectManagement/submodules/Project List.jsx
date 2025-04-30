@@ -109,6 +109,20 @@ const ProjectList = () => {
   // API base URL
   const API_URL = '/api/project-management';
 
+  // Helper function to determine status class for status dots
+  const getStatusClass = (status) => {
+    if (!status) return 'pending';
+    
+    status = status.toLowerCase();
+    if (status === 'approved') return 'approved';
+    if (status === 'rejected' || status === 'not approved') return 'not-approved';
+    if (status === 'ongoing') return 'ongoing';
+    if (status === 'pending') return 'pending';
+    if (status === 'completed') return 'approved'; // Treat completed as approved
+    
+    return 'pending'; // Default
+  };
+
   // Function to show notification
   const showNotification = (message, type = 'success') => {
     setNotification({
@@ -842,25 +856,9 @@ const ProjectList = () => {
               <h1 className="page-title">
                 {showArchivedProjects ? "Archived Projects" : "Project Request Management"}
               </h1>
-              
-              <div className="status-indicators">
-                <span className="status-indicator approved">
-                  <div className="status-dot"></div>
-                  <span>Approved</span>
-                </span>
-                <span className="status-indicator not-approved">
-                  <div className="status-dot"></div>
-                  <span>Not Approved</span>
-                </span>
-                <span className="status-indicator ongoing">
-                  <div className="status-dot"></div>
-                  <span>Ongoing</span>
-                </span>
-              </div>
-              
               <div className="action-buttons">
                 <button className="btn btn-secondary" onClick={toggleArchivedView}>
-                  {showArchivedProjects ? "View Active Projects" : "View Archived Projects"}
+                  {showArchivedProjects ? "View Active Projects" : " Archived Projects"}
                 </button>
                 
                 {!showArchivedProjects && (
@@ -887,7 +885,7 @@ const ProjectList = () => {
                 
                 <button className="btn btn-primary" onClick={handleProjectRequestDetailsClick}>
                   <i className="details-icon"></i>
-                  View Project Details
+                  Project Details
                 </button>
               </div>
             </div>
@@ -909,6 +907,7 @@ const ProjectList = () => {
                   >
                     Archived External Requests
                   </button>
+                  
                 </>
               ) : (
                 <>
@@ -924,6 +923,20 @@ const ProjectList = () => {
                   >
                     External Requests
                   </button>
+                  <div className="status-indicators">
+                <span className="status-indicator approved">
+                  <div className="status-dot"></div>
+                  <span>Approved</span>
+                </span>
+                <span className="status-indicator not-approved">
+                  <div className="status-dot"></div>
+                  <span>Not Approved</span>
+                </span>
+                <span className="status-indicator ongoing">
+                  <div className="status-dot"></div>
+                  <span>Ongoing</span>
+                </span>
+              </div>
                 </>
               )}
             </div>
@@ -935,7 +948,7 @@ const ProjectList = () => {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th className="select-col"></th>
+                        <th className="select-col"></th>                 
                         <th>Project Request ID</th>
                         <th>Project Name</th>
                         <th>Approval ID</th>
@@ -943,12 +956,13 @@ const ProjectList = () => {
                         <th>Employee</th>
                         <th>Department</th> 
                         <th>Project Status</th>
+                        <th className="status-col">Status</th>
                       </tr>
                     </thead>
                     {loadingStates.internalRequests ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={8} />
+                          <SkeletonRow key={i} columns={9} />
                         ))}
                       </tbody>
                     ) : (
@@ -974,11 +988,14 @@ const ProjectList = () => {
                                   {item.project_status || 'Pending'}
                                 </span>
                               </td>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.project_status)}`}></div>
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="8" className="no-data">
+                            <td colSpan="9" className="no-data">
                               No internal request data available
                             </td>
                           </tr>
@@ -1001,18 +1018,20 @@ const ProjectList = () => {
                     <thead>
                       <tr>
                         <th className="select-col"></th>
+                        
                         <th>Project Request ID</th>
                         <th>Project Name</th>
                         <th>Approval ID</th>
                         <th>Item ID</th>
                         <th>Start Date</th>
                         <th>Project Status</th>
+                        <th className="status-col">Status</th>
                       </tr>
                     </thead>
                     {loadingStates.externalRequests ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={7} />
+                          <SkeletonRow key={i} columns={8} />
                         ))}
                       </tbody>
                     ) : (
@@ -1027,6 +1046,7 @@ const ProjectList = () => {
                                   onChange={() => handleCheckboxChange(index)}
                                 />
                               </td>
+                              
                               <td>{item.ext_project_request_id}</td>
                               <td>{item.project_name}</td>
                               <td>{item.approval_id}</td>
@@ -1037,11 +1057,14 @@ const ProjectList = () => {
                                   {item.project_status || 'Pending'}
                                 </span>
                               </td>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.project_status)}`}></div>
+                              </td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="7" className="no-data">
+                            <td colSpan="8" className="no-data">
                               No external request data available
                             </td>
                           </tr>
@@ -1064,6 +1087,7 @@ const ProjectList = () => {
                     <thead>
                       <tr>
                         <th className="select-col"></th>
+                        <th className="status-col">Status</th>
                         <th>Project Request ID</th>
                         <th>Project Name</th>
                         <th>Approval ID</th>
@@ -1077,7 +1101,7 @@ const ProjectList = () => {
                     {loadingStates.archivedInternal ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={9} />
+                          <SkeletonRow key={i} columns={10} />
                         ))}
                       </tbody>
                     ) : (
@@ -1091,6 +1115,9 @@ const ProjectList = () => {
                                   checked={selectedArchivedRequests[index] || false}
                                   onChange={() => handleArchivedCheckboxChange(index)}
                                 />
+                              </td>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.project_status)}`}></div>
                               </td>
                               <td>{item.project_request_id}</td>
                               <td>{item.project_name}</td>
@@ -1108,7 +1135,7 @@ const ProjectList = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="9" className="no-data">
+                            <td colSpan="10" className="no-data">
                               No archived internal request data available
                             </td>
                           </tr>
@@ -1131,6 +1158,7 @@ const ProjectList = () => {
                     <thead>
                       <tr>
                         <th className="select-col"></th>
+                        <th className="status-col">Status</th>
                         <th>Project Request ID</th>
                         <th>Project Name</th>
                         <th>Approval ID</th>
@@ -1143,7 +1171,7 @@ const ProjectList = () => {
                     {loadingStates.archivedExternal ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={8} />
+                          <SkeletonRow key={i} columns={9} />
                         ))}
                       </tbody>
                     ) : (
@@ -1157,6 +1185,9 @@ const ProjectList = () => {
                                   checked={selectedArchivedRequests[index] || false}
                                   onChange={() => handleArchivedCheckboxChange(index)}
                                 />
+                              </td>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.project_status)}`}></div>
                               </td>
                               <td>{item.ext_project_request_id}</td>
                               <td>{item.project_name}</td>
@@ -1173,7 +1204,7 @@ const ProjectList = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="8" className="no-data">
+                            <td colSpan="9" className="no-data">
                               No archived external request data available
                             </td>
                           </tr>
@@ -1221,6 +1252,7 @@ const ProjectList = () => {
                   <table className="data-table">
                     <thead>
                       <tr>
+                        <th className="status-col">Status</th>
                         <th>Project ID</th>
                         <th>Request ID</th>
                         <th>Project Name</th>
@@ -1237,7 +1269,7 @@ const ProjectList = () => {
                     {loadingStates.internalDetails ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={11} />
+                          <SkeletonRow key={i} columns={12} />
                         ))}
                       </tbody>
                     ) : (
@@ -1245,6 +1277,9 @@ const ProjectList = () => {
                         {internalDetails.length > 0 ? (
                           internalDetails.map((item, index) => (
                             <tr key={index}>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.status)}`}></div>
+                              </td>
                               <td>{item.intrnl_project_id}</td>
                               <td>{item.project_request_id}</td>
                               <td>{item.project_name}</td>
@@ -1264,7 +1299,7 @@ const ProjectList = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="11" className="no-data">
+                            <td colSpan="12" className="no-data">
                               No internal details available
                             </td>
                           </tr>
@@ -1285,6 +1320,7 @@ const ProjectList = () => {
                   <table className="data-table">
                     <thead>
                       <tr>
+                        <th className="status-col">Status</th>
                         <th>Project ID</th>
                         <th>Project Name</th>
                         <th>Approval ID</th>
@@ -1303,7 +1339,7 @@ const ProjectList = () => {
                     {loadingStates.externalDetails ? (
                       <tbody>
                         {Array(5).fill().map((_, i) => (
-                          <SkeletonRow key={i} columns={13} />
+                          <SkeletonRow key={i} columns={14} />
                         ))}
                       </tbody>
                     ) : (
@@ -1311,6 +1347,9 @@ const ProjectList = () => {
                         {externalDetails.length > 0 ? (
                           externalDetails.map((item, index) => (
                             <tr key={index}>
+                              <td className="status-col">
+                                <div className={`status-indicator-dot ${getStatusClass(item.project_status)}`}></div>
+                              </td>
                               <td>{item.project_id}</td>
                               <td>{item.project_name}</td>
                               <td>{item.approval_id}</td>
@@ -1332,7 +1371,7 @@ const ProjectList = () => {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="13" className="no-data">
+                            <td colSpan="14" className="no-data">
                               No external details available
                             </td>
                           </tr>
