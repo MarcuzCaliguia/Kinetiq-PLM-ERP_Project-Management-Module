@@ -1,7 +1,39 @@
 // Project List.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "../styles/Project List.css";
 import axios from 'axios';
+
+// Custom hook for debouncing values
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
+// Retry mechanism for API calls
+const fetchWithRetry = async (fetchFunction, maxRetries = 2) => {
+  let retries = 0;
+  while (retries < maxRetries) {
+    try {
+      return await fetchFunction();
+    } catch (error) {
+      retries++;
+      if (retries === maxRetries) throw error;
+      // Exponential backoff: wait longer between each retry
+      await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+    }
+  }
+};
 
 const ProjectList = () => {
   const [selectedNav, setSelectedNav] = useState("Internal Request");
@@ -14,7 +46,6 @@ const ProjectList = () => {
   const [externalRequests, setExternalRequests] = useState([]);
   const [internalDetails, setInternalDetails] = useState([]);
   const [externalDetails, setExternalDetails] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // Pagination state
@@ -43,19 +74,25 @@ const ProjectList = () => {
     status: ''
   });
   
-  // Add loading state for individual data types
-  const [loadingInternal, setLoadingInternal] = useState(true);
-  const [loadingExternal, setLoadingExternal] = useState(true);
-  const [loadingInternalDetails, setLoadingInternalDetails] = useState(true);
-  const [loadingExternalDetails, setLoadingExternalDetails] = useState(true);
+  // Debounced filters for automatic searching
+  const debouncedInternalFilters = useDebounce(internalFilters, 500);
+  const debouncedExternalFilters = useDebounce(externalFilters, 500);
+  
+  // Loading states for individual data types
+  const [loadingStates, setLoadingStates] = useState({
+    internalRequests: false,
+    externalRequests: false,
+    internalDetails: false,
+    externalDetails: false,
+    archivedInternal: false,
+    archivedExternal: false
+  });
 
   // New state for archived projects
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
   const [archivedNav, setArchivedNav] = useState("Internal Archived");
   const [archivedInternalRequests, setArchivedInternalRequests] = useState([]);
   const [archivedExternalRequests, setArchivedExternalRequests] = useState([]);
-  const [loadingArchivedInternal, setLoadingArchivedInternal] = useState(true);
-  const [loadingArchivedExternal, setLoadingArchivedExternal] = useState(true);
   const [archivedInternalPage, setArchivedInternalPage] = useState(1);
   const [archivedExternalPage, setArchivedExternalPage] = useState(1);
   const [archivedInternalPagination, setArchivedInternalPagination] = useState({});
@@ -100,214 +137,255 @@ const ProjectList = () => {
   };
 
   // Fetch data from API with pagination and filters
-  const fetchInternalRequests = async (page = 1) => {
-    setLoadingInternal(true);
+  const fetchInternalRequests = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, internalRequests: true }));
     try {
-      const queryString = buildQueryString(internalFilters);
-      const url = `${API_URL}/internal-requests/?page=${page}${queryString ? '&' + queryString : ''}`;
-      
-      const response = await axios.get(url);
-      console.log('Internal requests data:', response.data);
-      setInternalRequests(response.data.results || []);
-      setInternalRequestsPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const queryString = buildQueryString(internalFilters);
+        const url = `${API_URL}/internal-requests/?page=${page}${queryString ? '&' + queryString : ''}`;
+        
+        const response = await axios.get(url);
+        setInternalRequests(response.data.results || []);
+        setInternalRequestsPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setInternalRequestsPage(page);
+        return true;
       });
-      setInternalRequestsPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading internal requests:', err);
       if (err.response && err.response.status === 404) {
-        // Handle 404 (likely a page that doesn't exist)
         setInternalRequestsPage(1);
         return fetchInternalRequests(1);
       }
+      showNotification('Failed to load internal requests', 'error');
       return false;
     } finally {
-      setLoadingInternal(false);
+      setLoadingStates(prev => ({ ...prev, internalRequests: false }));
     }
-  };
+  }, [internalFilters]);
 
-  const fetchExternalRequests = async (page = 1) => {
-    setLoadingExternal(true);
+  const fetchExternalRequests = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, externalRequests: true }));
     try {
-      const queryString = buildQueryString(externalFilters);
-      const url = `${API_URL}/external-requests/?page=${page}${queryString ? '&' + queryString : ''}`;
-      
-      const response = await axios.get(url);
-      console.log('External requests data:', response.data);
-      setExternalRequests(response.data.results || []);
-      setExternalRequestsPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const queryString = buildQueryString(externalFilters);
+        const url = `${API_URL}/external-requests/?page=${page}${queryString ? '&' + queryString : ''}`;
+        
+        const response = await axios.get(url);
+        setExternalRequests(response.data.results || []);
+        setExternalRequestsPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setExternalRequestsPage(page);
+        return true;
       });
-      setExternalRequestsPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading external requests:', err);
       if (err.response && err.response.status === 404) {
         setExternalRequestsPage(1);
         return fetchExternalRequests(1);
       }
+      showNotification('Failed to load external requests', 'error');
       return false;
     } finally {
-      setLoadingExternal(false);
+      setLoadingStates(prev => ({ ...prev, externalRequests: false }));
     }
-  };
+  }, [externalFilters]);
 
-  const fetchInternalDetails = async (page = 1) => {
-    setLoadingInternalDetails(true);
+  const fetchInternalDetails = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, internalDetails: true }));
     try {
-      const response = await axios.get(`${API_URL}/internal-projects/?page=${page}`);
-      console.log('Internal details data:', response.data);
-      setInternalDetails(response.data.results || []);
-      setInternalDetailsPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const response = await axios.get(`${API_URL}/internal-projects/?page=${page}`);
+        setInternalDetails(response.data.results || []);
+        setInternalDetailsPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setInternalDetailsPage(page);
+        return true;
       });
-      setInternalDetailsPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading internal details:', err);
       if (err.response && err.response.status === 404) {
         setInternalDetailsPage(1);
         return fetchInternalDetails(1);
       }
+      showNotification('Failed to load internal project details', 'error');
       return false;
     } finally {
-      setLoadingInternalDetails(false);
+      setLoadingStates(prev => ({ ...prev, internalDetails: false }));
     }
-  };
+  }, []);
 
-  const fetchExternalDetails = async (page = 1) => {
-    setLoadingExternalDetails(true);
+  const fetchExternalDetails = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, externalDetails: true }));
     try {
-      const response = await axios.get(`${API_URL}/external-projects/?page=${page}`);
-      console.log('External details data:', response.data);
-      setExternalDetails(response.data.results || []);
-      setExternalDetailsPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const response = await axios.get(`${API_URL}/external-projects/?page=${page}`);
+        setExternalDetails(response.data.results || []);
+        setExternalDetailsPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setExternalDetailsPage(page);
+        return true;
       });
-      setExternalDetailsPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading external details:', err);
       if (err.response && err.response.status === 404) {
         setExternalDetailsPage(1);
         return fetchExternalDetails(1);
       }
+      showNotification('Failed to load external project details', 'error');
       return false;
     } finally {
-      setLoadingExternalDetails(false);
+      setLoadingStates(prev => ({ ...prev, externalDetails: false }));
     }
-  };
+  }, []);
 
   // New functions for archived data
-  const fetchArchivedInternalRequests = async (page = 1) => {
-    setLoadingArchivedInternal(true);
+  const fetchArchivedInternalRequests = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, archivedInternal: true }));
     try {
-      const response = await axios.get(`${API_URL}/archived-projects/internal_requests/?page=${page}`);
-      console.log('Archived internal requests data:', response.data);
-      setArchivedInternalRequests(response.data.results || []);
-      setArchivedInternalPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const response = await axios.get(`${API_URL}/archived-projects/internal_requests/?page=${page}`);
+        setArchivedInternalRequests(response.data.results || []);
+        setArchivedInternalPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setArchivedInternalPage(page);
+        return true;
       });
-      setArchivedInternalPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading archived internal requests:', err);
       if (err.response && err.response.status === 404) {
         setArchivedInternalPage(1);
         return fetchArchivedInternalRequests(1);
       }
+      showNotification('Failed to load archived internal requests', 'error');
       return false;
     } finally {
-      setLoadingArchivedInternal(false);
+      setLoadingStates(prev => ({ ...prev, archivedInternal: false }));
     }
-  };
+  }, []);
 
-  const fetchArchivedExternalRequests = async (page = 1) => {
-    setLoadingArchivedExternal(true);
+  const fetchArchivedExternalRequests = useCallback(async (page = 1) => {
+    setLoadingStates(prev => ({ ...prev, archivedExternal: true }));
     try {
-      const response = await axios.get(`${API_URL}/archived-projects/external_requests/?page=${page}`);
-      console.log('Archived external requests data:', response.data);
-      setArchivedExternalRequests(response.data.results || []);
-      setArchivedExternalPagination({
-        count: response.data.count,
-        next: response.data.next,
-        previous: response.data.previous
+      return await fetchWithRetry(async () => {
+        const response = await axios.get(`${API_URL}/archived-projects/external_requests/?page=${page}`);
+        setArchivedExternalRequests(response.data.results || []);
+        setArchivedExternalPagination({
+          count: response.data.count,
+          next: response.data.next,
+          previous: response.data.previous,
+          total_pages: response.data.total_pages || Math.ceil(response.data.count / 10),
+          current_page: response.data.current_page || page
+        });
+        setArchivedExternalPage(page);
+        return true;
       });
-      setArchivedExternalPage(page);
-      return true;
     } catch (err) {
       console.error('Error loading archived external requests:', err);
       if (err.response && err.response.status === 404) {
         setArchivedExternalPage(1);
         return fetchArchivedExternalRequests(1);
       }
+      showNotification('Failed to load archived external requests', 'error');
       return false;
     } finally {
-      setLoadingArchivedExternal(false);
+      setLoadingStates(prev => ({ ...prev, archivedExternal: false }));
     }
-  };
+  }, []);
+
+  // Effect for applying debounced filters
+  useEffect(() => {
+    if (selectedNav === "Internal Request" && !showArchivedProjects) {
+      fetchInternalRequests(1);
+    }
+  }, [debouncedInternalFilters, fetchInternalRequests, selectedNav, showArchivedProjects]);
+
+  useEffect(() => {
+    if (selectedNav === "External Request" && !showArchivedProjects) {
+      fetchExternalRequests(1);
+    }
+  }, [debouncedExternalFilters, fetchExternalRequests, selectedNav, showArchivedProjects]);
 
   // Initial data loading
   useEffect(() => {
     const loadInitialData = async () => {
-      setLoading(true);
       setError(null);
-      
-      let success = true;
       
       // Load data based on current view
       if (showProjectRequestList) {
         if (showArchivedProjects) {
           if (archivedNav === "Internal Archived") {
-            success = await fetchArchivedInternalRequests();
+            fetchArchivedInternalRequests();
+            // Preload external archived in background for faster switching
+            fetchArchivedExternalRequests();
           } else {
-            success = await fetchArchivedExternalRequests();
+            fetchArchivedExternalRequests();
+            // Preload internal archived in background for faster switching
+            fetchArchivedInternalRequests();
           }
         } else {
           if (selectedNav === "Internal Request") {
-            success = await fetchInternalRequests();
+            fetchInternalRequests();
+            // Preload external in background for faster switching
+            fetchExternalRequests();
           } else {
-            success = await fetchExternalRequests();
+            fetchExternalRequests();
+            // Preload internal in background for faster switching
+            fetchInternalRequests();
           }
         }
       } else {
         if (selectedNavdetails === "Internal Details") {
-          success = await fetchInternalDetails();
+          fetchInternalDetails();
+          // Preload external details in background for faster switching
+          fetchExternalDetails();
         } else {
-          success = await fetchExternalDetails();
+          fetchExternalDetails();
+          // Preload internal details in background for faster switching
+          fetchInternalDetails();
         }
       }
-      
-      if (!success) {
-        setError('Failed to load data. Please try again.');
-      }
-      
-      setLoading(false);
     };
 
     loadInitialData();
-    
-    // Shorter timeout (15 seconds instead of 60)
-    const timer = setTimeout(() => {
-      if (loading) {
-        setLoading(false);
-        if (!error) setError('Request is taking longer than expected. Data may be incomplete.');
-      }
-    }, 15000);
-    
-    return () => clearTimeout(timer);
-  }, [selectedNav, selectedNavdetails, showProjectRequestList, showArchivedProjects, archivedNav]);
+  }, [
+    selectedNav, 
+    selectedNavdetails, 
+    showProjectRequestList, 
+    showArchivedProjects, 
+    archivedNav,
+    fetchInternalRequests,
+    fetchExternalRequests,
+    fetchInternalDetails,
+    fetchExternalDetails,
+    fetchArchivedInternalRequests,
+    fetchArchivedExternalRequests
+  ]);
 
   // Handle navigation click
   const handleNavClick = (nav) => {
@@ -557,23 +635,18 @@ const ProjectList = () => {
     }
   };
 
-  // Show loading indicator while initial data is being fetched
-  if (loading && (loadingInternal && loadingExternal && loadingArchivedInternal && loadingArchivedExternal)) {
-    return (
-      <div className="project-list-container">
-        <div className="content-wrapper">
-          <div className="loading-container">
-            <div className="spinner"></div>
-            <p>Loading project data...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Check if any requests are selected
   const hasSelectedRequests = selectedRequests.some(selected => selected);
   const hasSelectedArchivedRequests = selectedArchivedRequests.some(selected => selected);
+
+  // Skeleton loading component
+  const SkeletonRow = ({ columns }) => (
+    <tr className="skeleton-row">
+      {Array(columns).fill().map((_, i) => (
+        <td key={i}><div className="skeleton-cell"></div></td>
+      ))}
+    </tr>
+  );
 
   // Notification component
   const Notification = () => {
@@ -604,7 +677,7 @@ const ProjectList = () => {
   const Pagination = ({ type, currentPage, pagination }) => {
     if (!pagination || !pagination.count) return null;
     
-    const totalPages = Math.ceil(pagination.count / 10);
+    const totalPages = pagination.total_pages || Math.ceil(pagination.count / 10);
     
     return (
       <div className="pagination">
@@ -859,264 +932,260 @@ const ProjectList = () => {
               {/* Active Internal Requests */}
               {!showArchivedProjects && selectedNav === "Internal Request" && (
                 <div className="data-table-wrapper">
-                  {loadingInternal ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading internal request data...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th className="select-col"></th>
-                            <th>Project Request ID</th>
-                            <th>Project Name</th>
-                            <th>Approval ID</th>
-                            <th>Request Date</th>
-                            <th>Employee</th>
-                            <th>Department</th> 
-                            <th>Project Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {internalRequests.length > 0 ? (
-                            internalRequests.map((item, index) => (
-                              <tr key={index}>
-                                <td className="select-col">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedRequests[index] || false}
-                                    onChange={() => handleCheckboxChange(index)}
-                                  />
-                                </td>
-                                <td>{item.project_request_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.request_date}</td>
-                                <td>{item.employee_name}</td>
-                                <td>{item.department}</td> 
-                                <td>
-                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
-                                    {item.project_status || 'Pending'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="8" className="no-data">
-                                No internal request data available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="select-col"></th>
+                        <th>Project Request ID</th>
+                        <th>Project Name</th>
+                        <th>Approval ID</th>
+                        <th>Request Date</th>
+                        <th>Employee</th>
+                        <th>Department</th> 
+                        <th>Project Status</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.internalRequests ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={8} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {internalRequests.length > 0 ? (
+                          internalRequests.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRequests[index] || false}
+                                  onChange={() => handleCheckboxChange(index)}
+                                />
+                              </td>
+                              <td>{item.project_request_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.request_date}</td>
+                              <td>{item.employee_name}</td>
+                              <td>{item.department}</td> 
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
+                                </span>
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="internalRequests" 
-                        currentPage={internalRequestsPage} 
-                        pagination={internalRequestsPagination} 
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="8" className="no-data">
+                              No internal request data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="internalRequests" 
+                    currentPage={internalRequestsPage} 
+                    pagination={internalRequestsPagination} 
+                  />
                 </div>
               )}
 
               {/* Active External Requests */}
               {!showArchivedProjects && selectedNav === "External Request" && (
                 <div className="data-table-wrapper">
-                  {loadingExternal ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading external request data...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th className="select-col"></th>
-                            <th>Project Request ID</th>
-                            <th>Project Name</th>
-                            <th>Approval ID</th>
-                            <th>Item ID</th>
-                            <th>Start Date</th>
-                            <th>Project Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {externalRequests.length > 0 ? (
-                            externalRequests.map((item, index) => (
-                              <tr key={index}>
-                                <td className="select-col">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedRequests[index] || false}
-                                    onChange={() => handleCheckboxChange(index)}
-                                  />
-                                </td>
-                                <td>{item.ext_project_request_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.item_id}</td>
-                                <td>{item.start_date}</td>
-                                <td>
-                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
-                                    {item.project_status || 'Pending'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="7" className="no-data">
-                                No external request data available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="select-col"></th>
+                        <th>Project Request ID</th>
+                        <th>Project Name</th>
+                        <th>Approval ID</th>
+                        <th>Item ID</th>
+                        <th>Start Date</th>
+                        <th>Project Status</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.externalRequests ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={7} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {externalRequests.length > 0 ? (
+                          externalRequests.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRequests[index] || false}
+                                  onChange={() => handleCheckboxChange(index)}
+                                />
+                              </td>
+                              <td>{item.ext_project_request_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.item_id}</td>
+                              <td>{item.start_date}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
+                                </span>
                               </td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="externalRequests" 
-                        currentPage={externalRequestsPage} 
-                        pagination={externalRequestsPagination} 
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="no-data">
+                              No external request data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="externalRequests" 
+                    currentPage={externalRequestsPage} 
+                    pagination={externalRequestsPagination} 
+                  />
                 </div>
               )}
 
               {/* Archived Internal Requests */}
               {showArchivedProjects && archivedNav === "Internal Archived" && (
                 <div className="data-table-wrapper">
-                  {loadingArchivedInternal ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading archived internal request data...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th className="select-col"></th>
-                            <th>Project Request ID</th>
-                            <th>Project Name</th>
-                            <th>Approval ID</th>
-                            <th>Request Date</th>
-                            <th>Employee ID</th>
-                            <th>Department ID</th>
-                            <th>Project Status</th>
-                            <th>Archived Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {archivedInternalRequests.length > 0 ? (
-                            archivedInternalRequests.map((item, index) => (
-                              <tr key={index}>
-                                <td className="select-col">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedArchivedRequests[index] || false}
-                                    onChange={() => handleArchivedCheckboxChange(index)}
-                                  />
-                                </td>
-                                <td>{item.project_request_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.request_date}</td>
-                                <td>{item.employee_id}</td>
-                                <td>{item.dept_id}</td>
-                                <td>
-                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
-                                    {item.project_status || 'Pending'}
-                                  </span>
-                                </td>
-                                <td className="archived-date">{item.archived_date}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="9" className="no-data">
-                                No archived internal request data available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="select-col"></th>
+                        <th>Project Request ID</th>
+                        <th>Project Name</th>
+                        <th>Approval ID</th>
+                        <th>Request Date</th>
+                        <th>Employee ID</th>
+                        <th>Department ID</th>
+                        <th>Project Status</th>
+                        <th>Archived Date</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.archivedInternal ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={9} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {archivedInternalRequests.length > 0 ? (
+                          archivedInternalRequests.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedArchivedRequests[index] || false}
+                                  onChange={() => handleArchivedCheckboxChange(index)}
+                                />
                               </td>
+                              <td>{item.project_request_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.request_date}</td>
+                              <td>{item.employee_id}</td>
+                              <td>{item.dept_id}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
+                                </span>
+                              </td>
+                              <td className="archived-date">{item.archived_date}</td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="archivedInternal" 
-                        currentPage={archivedInternalPage} 
-                        pagination={archivedInternalPagination} 
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="9" className="no-data">
+                              No archived internal request data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="archivedInternal" 
+                    currentPage={archivedInternalPage} 
+                    pagination={archivedInternalPagination} 
+                  />
                 </div>
               )}
 
               {/* Archived External Requests */}
               {showArchivedProjects && archivedNav === "External Archived" && (
                 <div className="data-table-wrapper">
-                  {loadingArchivedExternal ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading archived external request data...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th className="select-col"></th>
-                            <th>Project Request ID</th>
-                            <th>Project Name</th>
-                            <th>Approval ID</th>
-                            <th>Item ID</th>
-                            <th>Start Date</th>
-                            <th>Project Status</th>
-                            <th>Archived Date</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {archivedExternalRequests.length > 0 ? (
-                            archivedExternalRequests.map((item, index) => (
-                              <tr key={index}>
-                                <td className="select-col">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedArchivedRequests[index] || false}
-                                    onChange={() => handleArchivedCheckboxChange(index)}
-                                  />
-                                </td>
-                                <td>{item.ext_project_request_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.item_id}</td>
-                                <td>{item.start_date}</td>
-                                <td>
-                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
-                                    {item.project_status || 'Pending'}
-                                  </span>
-                                </td>
-                                <td className="archived-date">{item.archived_date}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="8" className="no-data">
-                                No archived external request data available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th className="select-col"></th>
+                        <th>Project Request ID</th>
+                        <th>Project Name</th>
+                        <th>Approval ID</th>
+                        <th>Item ID</th>
+                        <th>Start Date</th>
+                        <th>Project Status</th>
+                        <th>Archived Date</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.archivedExternal ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={8} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {archivedExternalRequests.length > 0 ? (
+                          archivedExternalRequests.map((item, index) => (
+                            <tr key={index}>
+                              <td className="select-col">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedArchivedRequests[index] || false}
+                                  onChange={() => handleArchivedCheckboxChange(index)}
+                                />
                               </td>
+                              <td>{item.ext_project_request_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.item_id}</td>
+                              <td>{item.start_date}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
+                                </span>
+                              </td>
+                              <td className="archived-date">{item.archived_date}</td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="archivedExternal" 
-                        currentPage={archivedExternalPage} 
-                        pagination={archivedExternalPagination}
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="8" className="no-data">
+                              No archived external request data available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="archivedExternal" 
+                    currentPage={archivedExternalPage} 
+                    pagination={archivedExternalPagination}
+                  />
                 </div>
               )}
             </div>
@@ -1149,135 +1218,133 @@ const ProjectList = () => {
             <div className="table-container">
               {selectedNavdetails === "Internal Details" && (
                 <div className="data-table-wrapper">
-                  {loadingInternalDetails ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading internal details...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Project ID</th>
-                            <th>Request ID</th>
-                            <th>Project Name</th>
-                            <th>Status</th>
-                            <th>Approval ID</th>
-                            <th>Employee ID</th>
-                            <th>Department</th>                  
-                            <th>Description</th>
-                            <th>Start Date</th>
-                            <th>End Date</th>
-                            <th>Issues</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {internalDetails.length > 0 ? (
-                            internalDetails.map((item, index) => (
-                              <tr key={index}>
-                                <td>{item.intrnl_project_id}</td>
-                                <td>{item.project_request_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>
-                                  <span className={`status-badge ${item.status?.toLowerCase() || 'pending'}`}>
-                                    {item.status || 'Pending'}
-                                  </span>
-                                </td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.employee_id}</td>
-                                <td>{item.department}</td>
-                                <td>{item.description}</td>
-                                <td>{item.start_date}</td>
-                                <td>{item.estimated_end_date}</td>
-                                <td>{item.project_issues}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="11" className="no-data">
-                                No internal details available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Project ID</th>
+                        <th>Request ID</th>
+                        <th>Project Name</th>
+                        <th>Status</th>
+                        <th>Approval ID</th>
+                        <th>Employee ID</th>
+                        <th>Department</th>                  
+                        <th>Description</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Issues</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.internalDetails ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={11} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {internalDetails.length > 0 ? (
+                          internalDetails.map((item, index) => (
+                            <tr key={index}>
+                              <td>{item.intrnl_project_id}</td>
+                              <td>{item.project_request_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>
+                                <span className={`status-badge ${item.status?.toLowerCase() || 'pending'}`}>
+                                  {item.status || 'Pending'}
+                                </span>
                               </td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.employee_id}</td>
+                              <td>{item.department}</td>
+                              <td>{item.description}</td>
+                              <td>{item.start_date}</td>
+                              <td>{item.estimated_end_date}</td>
+                              <td>{item.project_issues}</td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="internalDetails" 
-                        currentPage={internalDetailsPage} 
-                        pagination={internalDetailsPagination} 
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="11" className="no-data">
+                              No internal details available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="internalDetails" 
+                    currentPage={internalDetailsPage} 
+                    pagination={internalDetailsPagination} 
+                  />
                 </div>
               )}
 
               {selectedNavdetails === "External Details" && (
                 <div className="data-table-wrapper">
-                  {loadingExternalDetails ? (
-                    <div className="loading-message">
-                      <div className="spinner"></div>
-                      <p>Loading external details...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <table className="data-table">
-                        <thead>
-                          <tr>
-                            <th>Project ID</th>
-                            <th>Project Name</th>
-                            <th>Approval ID</th>
-                            <th>Item ID</th>
-                            <th>Start Date</th>
-                            <th>Project Status</th>
-                            <th>Project Milestone</th>
-                            <th>End Date</th>
-                            <th>Warranty Coverage</th>
-                            <th>Warranty Start</th>
-                            <th>Warranty End</th>
-                            <th>Warranty Status</th>
-                            <th>Issues</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {externalDetails.length > 0 ? (
-                            externalDetails.map((item, index) => (
-                              <tr key={index}>
-                                <td>{item.project_id}</td>
-                                <td>{item.project_name}</td>
-                                <td>{item.approval_id}</td>
-                                <td>{item.item_id}</td>
-                                <td>{item.start_date}</td>
-                                <td>
-                                  <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
-                                    {item.project_status || 'Pending'}
-                                  </span>
-                                </td>
-                                <td>{item.project_milestone}</td>
-                                <td>{item.estimated_end_date}</td>
-                                <td>{item.warranty_coverage_yr}</td>
-                                <td>{item.warranty_start_date}</td>
-                                <td>{item.warranty_end_date}</td>
-                                <td>{item.warranty_status}</td>
-                                <td>{item.project_issues}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan="13" className="no-data">
-                                No external details available
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Project ID</th>
+                        <th>Project Name</th>
+                        <th>Approval ID</th>
+                        <th>Item ID</th>
+                        <th>Start Date</th>
+                        <th>Project Status</th>
+                        <th>Project Milestone</th>
+                        <th>End Date</th>
+                        <th>Warranty Coverage</th>
+                        <th>Warranty Start</th>
+                        <th>Warranty End</th>
+                        <th>Warranty Status</th>
+                        <th>Issues</th>
+                      </tr>
+                    </thead>
+                    {loadingStates.externalDetails ? (
+                      <tbody>
+                        {Array(5).fill().map((_, i) => (
+                          <SkeletonRow key={i} columns={13} />
+                        ))}
+                      </tbody>
+                    ) : (
+                      <tbody>
+                        {externalDetails.length > 0 ? (
+                          externalDetails.map((item, index) => (
+                            <tr key={index}>
+                              <td>{item.project_id}</td>
+                              <td>{item.project_name}</td>
+                              <td>{item.approval_id}</td>
+                              <td>{item.item_id}</td>
+                              <td>{item.start_date}</td>
+                              <td>
+                                <span className={`status-badge ${item.project_status?.toLowerCase() || 'pending'}`}>
+                                  {item.project_status || 'Pending'}
+                                </span>
                               </td>
+                              <td>{item.project_milestone}</td>
+                              <td>{item.estimated_end_date}</td>
+                              <td>{item.warranty_coverage_yr}</td>
+                              <td>{item.warranty_start_date}</td>
+                              <td>{item.warranty_end_date}</td>
+                              <td>{item.warranty_status}</td>
+                              <td>{item.project_issues}</td>
                             </tr>
-                          )}
-                        </tbody>
-                      </table>
-                      <Pagination 
-                        type="externalDetails" 
-                        currentPage={externalDetailsPage} 
-                        pagination={externalDetailsPagination} 
-                      />
-                    </>
-                  )}
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="13" className="no-data">
+                              No external details available
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    )}
+                  </table>
+                  <Pagination 
+                    type="externalDetails" 
+                    currentPage={externalDetailsPage} 
+                    pagination={externalDetailsPagination} 
+                  />
                 </div>
               )}
             </div>
