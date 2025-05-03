@@ -290,8 +290,6 @@ def get_project_detail(request, project_type, project_id):
                         ipd.intrnl_project_status,
                         ipd.start_date,
                         ipd.estimated_end_date,
-                        ipr.project_budget_request,
-                        ipr.project_budget_description,
                         ipd.approval_id,
                         ipd.project_issues
                     FROM 
@@ -301,12 +299,12 @@ def get_project_detail(request, project_type, project_id):
                     WHERE 
                         ipd.intrnl_project_id = %s
                 """, [project_id])
-                
+                                
                 row = cursor.fetchone()
                 if not row:
                     return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
                     
-                project_id, project_name, project_status, start_date, end_date, budget, budget_desc, approval_id, issues = row
+                project_id, project_name, project_status, start_date, end_date, approval_id, issues = row
                 
                 # Get tasks for this project
                 cursor.execute("""
@@ -366,8 +364,8 @@ def get_project_detail(request, project_type, project_id):
                     'intrnl_project_status': project_status,
                     'intrnl_start_date': start_date.strftime('%Y-%m-%d') if start_date else None,
                     'intrnl_estimated_end_date': end_date.strftime('%Y-%m-%d') if end_date else None,
-                    'budget': str(budget) if budget else None,
-                    'budget_description': budget_desc,
+                    'budget': None,
+                    'budget_description': None,
                     'approval_id': approval_id,
                     'intrnl_project_issue': issues,
                     'tasks': tasks,

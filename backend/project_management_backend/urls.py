@@ -14,31 +14,25 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
+"""
+URL configuration for project_management_backend project.
+"""
+"""
+URL configuration for project_management_backend project.
+"""
 from django.urls import path, include
+from django.http import HttpResponse
 from rest_framework.routers import DefaultRouter
-from project_reports import api
-from project_reports import views as report_views
-from project_warranties import views as warranty_views
 
-router = DefaultRouter()
-router.register(r'reports', api.ReportMonitoringViewSet)
-router.register(r'external-projects', api.ExternalProjectViewSet)
-router.register(r'internal-projects', api.InternalProjectViewSet)
+def health_check(request):
+    return HttpResponse("OK")
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('', health_check),
+    
     path('project-tasks/', include('project_tasks.urls')),
-    path('api/reports/', include('project_reports.urls')),
-    path('api/', include(router.urls)),
     path('api/warranties/', include('project_warranties.urls')),
-    path('api/project-planning/', include('project_planning.urls')),    
+    path('api/project-planning/', include('project_planning.urls')),
     path('api/project-management/', include('project_list.urls')),
-    path('api/project_request/', include('project_request.urls')),    
-    
-    path('api/equipment/', report_views.equipment_list, name='equipment-list'),
-    path('api/employees/', report_views.employees_list, name='employees-list'),
-    path('api/positions/', report_views.positions_list, name='positions-list'),
-    
-    path('api/', include('dashboard.urls')),
+    path('api/dashboard/', include('dashboard.urls'))
 ]

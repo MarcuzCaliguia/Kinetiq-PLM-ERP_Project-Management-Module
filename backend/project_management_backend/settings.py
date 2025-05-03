@@ -15,9 +15,11 @@ APPEND_SLASH = True
 SECRET_KEY = 'django-insecure-eylsb0+r0*jaf_jok$yvcejuq5k*tqja!e48)27)px3o%xz9-5'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['c95i46nr4l.execute-api.ap-southeast-1.amazonaws.com','localhost', '127.0.0.1',]
+ALLOWED_HOSTS = ['c95i46nr4l.execute-api.ap-southeast-1.amazonaws.com',
+                 'localhost', 
+                 '127.0.0.1',]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -29,11 +31,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'project_tasks',
-    'project_reports',
     'project_warranties',
     'project_planning',
     'project_list',
-    'project_request',
     'dashboard',
 ]
 
@@ -48,7 +48,7 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = ["https://d2dhcd346f3g6s.cloudfront.net", "http://kinetiq-shell-app.s3-website-ap-southeast-1.amazonaws.com"] 
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

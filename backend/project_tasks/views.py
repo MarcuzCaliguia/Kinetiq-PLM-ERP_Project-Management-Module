@@ -3,354 +3,371 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import connection
 import logging
-
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
+def db_operation(operation_name):
+    """Decorator to handle database operations with proper error handling and logging"""
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(*args, **kwargs):
+            try:
+                logger.info(f"Starting {operation_name}")
+                return view_func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"Error in {operation_name}: {str(e)}")
+                return Response(
+                    {"detail": f"Operation failed: {str(e)}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        return wrapper
+    return decorator
+
+def execute_query(query, params=None, fetch_all=True):
+    """Execute SQL query and return results"""
+    with connection.cursor() as cursor:
+        cursor.execute(query, params or [])
+        if cursor.description:
+            columns = [col[0] for col in cursor.description]
+            if fetch_all:
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            else:
+                row = cursor.fetchone()
+                return dict(zip(columns, row)) if row else None
+        return cursor.rowcount if not fetch_all else []
+
 @api_view(['GET'])
+@db_operation("retrieving internal tasks")
 def get_internal_tasks(request):
-    try:
-        with connection.cursor() as cursor:
-            # Use the internal_project_tasks view instead of complex joins
-            cursor.execute("SELECT * FROM project_management.internal_project_tasks")
-            
-            columns = [col[0] for col in cursor.description]
-            tasks = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"Internal tasks retrieved: {len(tasks)}")
-        return Response(tasks)
-    except Exception as e:
-        logger.error(f"Error retrieving internal tasks: {str(e)}")
-        return Response(
-            {"detail": f"Error retrieving tasks: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    # Fixed query - we need to check the actual column names in the view
+    tasks = execute_query("""
+        SELECT 
+            t.*,
+            pl.employee_id,
+            e.first_name,
+            e.last_name,
+            e.phone,
+            e.employment_type,
+            e.status
+        FROM 
+            project_management.internal_project_tasks t
+        LEFT JOIN 
+            project_management.project_tasks pt ON t.task_id = pt.task_id
+        LEFT JOIN 
+            project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
+        LEFT JOIN 
+            human_resources.employees e ON pl.employee_id = e.employee_id
+    """)
+    logger.info(f"Internal tasks retrieved: {len(tasks)}")
+    return Response(tasks)
 
 @api_view(['GET'])
+@db_operation("retrieving external tasks")
 def get_external_tasks(request):
-    try:
-        with connection.cursor() as cursor:
-            # Use the external_project_tasks view instead of complex joins
-            cursor.execute("SELECT * FROM project_management.external_project_tasks")
-            
-            columns = [col[0] for col in cursor.description]
-            tasks = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"External tasks retrieved: {len(tasks)}")
-        return Response(tasks)
-    except Exception as e:
-        logger.error(f"Error retrieving external tasks: {str(e)}")
-        return Response(
-            {"detail": f"Error retrieving tasks: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
+    # Fixed query - we need to check the actual column names in the view
+    tasks = execute_query("""
+        SELECT 
+            t.*,
+            pl.employee_id,
+            e.first_name,
+            e.last_name,
+            e.phone,
+            e.employment_type,
+            e.status
+        FROM 
+            project_management.external_project_tasks t
+        LEFT JOIN 
+            project_management.project_tasks pt ON t.task_id = pt.task_id
+        LEFT JOIN 
+            project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
+        LEFT JOIN 
+            human_resources.employees e ON pl.employee_id = e.employee_id
+    """)
+    logger.info(f"External tasks retrieved: {len(tasks)}")
+    return Response(tasks)
 @api_view(['POST'])
+@db_operation("creating external task")
 def create_external_task(request):
-    try:
-        logger.info(f"Creating external task with data: {request.data}")
-        
-        project_id = request.data.get('ProjectID')
-        task_description = request.data.get('TaskDescription')
-        task_status = request.data.get('TaskStatus')
-        task_deadline = request.data.get('Taskdeadline')
-        project_labor_id = request.data.get('Laborid')
-        
-        logger.info(f"Extracted data: project_id={project_id}, task_description={task_description}, "
-                   f"task_status={task_status}, task_deadline={task_deadline}, "
-                   f"project_labor_id={project_labor_id}")
-        
-        if not all([project_id, task_status, task_deadline, project_labor_id]):
-            missing_fields = []
-            if not project_id: missing_fields.append('ProjectID')
-            if not task_status: missing_fields.append('TaskStatus')
-            if not task_deadline: missing_fields.append('Taskdeadline')
-            if not project_labor_id: missing_fields.append('Laborid')
-            
-            return Response(
-                {"detail": f"Missing required fields: {', '.join(missing_fields)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Verify project and labor exist using SQL instead of ORM
-        with connection.cursor() as cursor:
-            # Check if project exists
-            cursor.execute(
-                "SELECT COUNT(*) FROM project_management.external_project_details WHERE project_id = %s",
-                [project_id]
-            )
-            if cursor.fetchone()[0] == 0:
-                return Response(
-                    {"detail": f"Invalid project ID: {project_id}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Check if labor exists
-            cursor.execute(
-                "SELECT COUNT(*) FROM project_management.project_labor WHERE project_labor_id = %s",
-                [project_labor_id]
-            )
-            if cursor.fetchone()[0] == 0:
-                return Response(
-                    {"detail": f"Invalid labor ID: {project_labor_id}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Insert the task
-            cursor.execute("""
-                INSERT INTO project_management.project_tasks
-                (project_id, task_description, task_status, task_deadline, project_labor_id)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING task_id
-            """, [project_id, task_description, task_status, task_deadline, project_labor_id])
-            
-            result = cursor.fetchone()
-            if not result:
-                return Response(
-                    {"detail": "Task created but could not retrieve the task ID"},
-                    status=status.HTTP_201_CREATED
-                )
-            
-            task_id = result[0]
-            
-            # Get the created task details from the view
-            cursor.execute("""
-                SELECT * FROM project_management.external_project_tasks
-                WHERE task_id = %s
-            """, [task_id])
-            
-            columns = [col[0] for col in cursor.description]
-            task_data = dict(zip(columns, cursor.fetchone())) if cursor.rowcount > 0 else {"task_id": task_id}
-            
-            return Response(task_data, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        logger.error(f"Error creating external task: {str(e)}")
+    logger.info(f"Creating external task with data: {request.data}")
+    
+    # Extract data with defaults
+    data = request.data
+    project_id = data.get('ProjectID')
+    task_description = data.get('TaskDescription', '')
+    task_status = data.get('TaskStatus')
+    task_deadline = data.get('Taskdeadline')
+    project_labor_id = data.get('Laborid')
+    
+    # Validate required fields
+    required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
+                      'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
+    missing = [k for k, v in required_fields.items() if not v]
+    
+    if missing:
         return Response(
-            {"detail": f"Error creating task: {str(e)}"},
+            {"detail": f"Missing required fields: {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    # Verify project exists
+    project_exists = execute_query(
+        "SELECT COUNT(*) as count FROM project_management.external_project_details WHERE project_id = %s",
+        [project_id], fetch_all=False
+    )
+    
+    if not project_exists or project_exists.get('count', 0) == 0:
+        return Response(
+            {"detail": f"Invalid project ID: {project_id}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Verify labor exists
+    labor_exists = execute_query(
+        "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
+        [project_labor_id], fetch_all=False
+    )
+    
+    if not labor_exists or labor_exists.get('count', 0) == 0:
+        return Response(
+            {"detail": f"Invalid labor ID: {project_labor_id}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Insert the task
+    result = execute_query("""
+        INSERT INTO project_management.project_tasks
+        (project_id, task_description, task_status, task_deadline, project_labor_id)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING task_id
+    """, [project_id, task_description, task_status, task_deadline, project_labor_id], fetch_all=False)
+    
+    if not result:
+        return Response(
+            {"detail": "Task created but could not retrieve the task ID"},
+            status=status.HTTP_201_CREATED
+        )
+    
+    task_id = result.get('task_id')
+    
+    # Get the created task details
+    task_data = execute_query("""
+        SELECT * FROM project_management.external_project_tasks
+        WHERE task_id = %s
+    """, [task_id], fetch_all=False) or {"task_id": task_id}
+    
+    return Response(task_data, status=status.HTTP_201_CREATED)
 
 @api_view(['POST'])
+@db_operation("creating internal task")
 def create_internal_task(request):
-    try:
-        logger.info(f"Creating internal task with data: {request.data}")
-        
-        project_id = request.data.get('ProjectID')
-        task_description = request.data.get('TaskDescription')
-        task_status = request.data.get('TaskStatus')
-        task_deadline = request.data.get('Taskdeadline')
-        project_labor_id = request.data.get('Laborid')
-        
-        logger.info(f"Extracted data: project_id={project_id}, task_description={task_description}, "
-                   f"task_status={task_status}, task_deadline={task_deadline}, "
-                   f"project_labor_id={project_labor_id}")
-        
-        if not all([project_id, task_status, task_deadline, project_labor_id]):
-            missing_fields = []
-            if not project_id: missing_fields.append('ProjectID')
-            if not task_status: missing_fields.append('TaskStatus')
-            if not task_deadline: missing_fields.append('Taskdeadline')
-            if not project_labor_id: missing_fields.append('Laborid')
-            
-            return Response(
-                {"detail": f"Missing required fields: {', '.join(missing_fields)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Verify project and labor exist using SQL instead of ORM
-        with connection.cursor() as cursor:
-            # Check if project exists
-            cursor.execute(
-                "SELECT COUNT(*) FROM project_management.internal_project_details WHERE intrnl_project_id = %s",
-                [project_id]
-            )
-            if cursor.fetchone()[0] == 0:
-                return Response(
-                    {"detail": f"Invalid project ID: {project_id}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Check if labor exists
-            cursor.execute(
-                "SELECT COUNT(*) FROM project_management.project_labor WHERE project_labor_id = %s",
-                [project_labor_id]
-            )
-            if cursor.fetchone()[0] == 0:
-                return Response(
-                    {"detail": f"Invalid labor ID: {project_labor_id}"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Insert the task
-            cursor.execute("""
-                INSERT INTO project_management.project_tasks
-                (intrnl_project_id, task_description, task_status, task_deadline, project_labor_id)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING task_id
-            """, [project_id, task_description, task_status, task_deadline, project_labor_id])
-            
-            result = cursor.fetchone()
-            if not result:
-                return Response(
-                    {"detail": "Task created but could not retrieve the task ID"},
-                    status=status.HTTP_201_CREATED
-                )
-            
-            task_id = result[0]
-            
-            # Get the created task details from the view
-            cursor.execute("""
-                SELECT * FROM project_management.internal_project_tasks
-                WHERE task_id = %s
-            """, [task_id])
-            
-            columns = [col[0] for col in cursor.description]
-            task_data = dict(zip(columns, cursor.fetchone())) if cursor.rowcount > 0 else {"task_id": task_id}
-            
-            return Response(task_data, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        logger.error(f"Error creating internal task: {str(e)}")
+    logger.info(f"Creating internal task with data: {request.data}")
+    
+    # Extract data with defaults
+    data = request.data
+    project_id = data.get('ProjectID')
+    task_description = data.get('TaskDescription', '')
+    task_status = data.get('TaskStatus')
+    task_deadline = data.get('Taskdeadline')
+    project_labor_id = data.get('Laborid')
+    
+    # Validate required fields
+    required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
+                      'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
+    missing = [k for k, v in required_fields.items() if not v]
+    
+    if missing:
         return Response(
-            {"detail": f"Error creating task: {str(e)}"},
+            {"detail": f"Missing required fields: {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
+    
+    # Verify project exists
+    project_exists = execute_query(
+        "SELECT COUNT(*) as count FROM project_management.internal_project_details WHERE intrnl_project_id = %s",
+        [project_id], fetch_all=False
+    )
+    
+    if not project_exists or project_exists.get('count', 0) == 0:
+        return Response(
+            {"detail": f"Invalid project ID: {project_id}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Verify labor exists
+    labor_exists = execute_query(
+        "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
+        [project_labor_id], fetch_all=False
+    )
+    
+    if not labor_exists or labor_exists.get('count', 0) == 0:
+        return Response(
+            {"detail": f"Invalid labor ID: {project_labor_id}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Insert the task
+    result = execute_query("""
+        INSERT INTO project_management.project_tasks
+        (intrnl_project_id, task_description, task_status, task_deadline, project_labor_id)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING task_id
+    """, [project_id, task_description, task_status, task_deadline, project_labor_id], fetch_all=False)
+    
+    if not result:
+        return Response(
+            {"detail": "Task created but could not retrieve the task ID"},
+            status=status.HTTP_201_CREATED
+        )
+    
+    task_id = result.get('task_id')
+    
+    # Get the created task details
+    task_data = execute_query("""
+        SELECT * FROM project_management.internal_project_tasks
+        WHERE task_id = %s
+    """, [task_id], fetch_all=False) or {"task_id": task_id}
+    
+    return Response(task_data, status=status.HTTP_201_CREATED)
 
 @api_view(['DELETE'])
+@db_operation("deleting external task")
 def delete_external_task(request, task_id):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                DELETE FROM project_management.project_tasks
-                WHERE task_id = %s AND project_id IS NOT NULL
-            """, [task_id])
-            
-            if cursor.rowcount == 0:
-                return Response(
-                    {"detail": f"Task with ID {task_id} not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    except Exception as e:
-        logger.error(f"Error deleting external task: {str(e)}")
+    result = execute_query("""
+        DELETE FROM project_management.project_tasks
+        WHERE task_id = %s AND project_id IS NOT NULL
+        RETURNING task_id
+    """, [task_id], fetch_all=False)
+    
+    if not result:
         return Response(
-            {"detail": f"Error deleting task: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"detail": f"Task with ID {task_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
         )
+    
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['DELETE'])
+@db_operation("deleting internal task")
 def delete_internal_task(request, task_id):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                DELETE FROM project_management.project_tasks
-                WHERE task_id = %s AND intrnl_project_id IS NOT NULL
-            """, [task_id])
-            
-            if cursor.rowcount == 0:
-                return Response(
-                    {"detail": f"Task with ID {task_id} not found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    except Exception as e:
-        logger.error(f"Error deleting internal task: {str(e)}")
+    result = execute_query("""
+        DELETE FROM project_management.project_tasks
+        WHERE task_id = %s AND intrnl_project_id IS NOT NULL
+        RETURNING task_id
+    """, [task_id], fetch_all=False)
+    
+    if not result:
         return Response(
-            {"detail": f"Error deleting task: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            {"detail": f"Task with ID {task_id} not found"},
+            status=status.HTTP_404_NOT_FOUND
         )
+    
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET'])
+@db_operation("retrieving internal projects")
 def get_internal_projects(request):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT ipd.intrnl_project_id, ipr.project_name
-                FROM project_management.internal_project_details ipd
-                JOIN project_management.internal_project_request ipr 
-                ON ipd.project_request_id = ipr.project_request_id
-            """)
-            
-            columns = [col[0] for col in cursor.description]
-            projects = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"Internal projects retrieved: {len(projects)}")
-        return Response(projects)
-    except Exception as e:
-        logger.error(f"Error retrieving internal projects: {str(e)}")
-        return Response(
-            {"detail": f"Error retrieving projects: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    projects = execute_query("""
+        SELECT ipd.intrnl_project_id, ipr.project_name
+        FROM project_management.internal_project_details ipd
+        JOIN project_management.internal_project_request ipr 
+        ON ipd.project_request_id = ipr.project_request_id
+    """)
+    
+    logger.info(f"Internal projects retrieved: {len(projects)}")
+    return Response(projects)
 
 @api_view(['GET'])
+@db_operation("retrieving external projects")
 def get_external_projects(request):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT epd.project_id, epr.ext_project_name
-                FROM project_management.external_project_details epd
-                JOIN project_management.external_project_request epr 
-                ON epd.ext_project_request_id = epr.ext_project_request_id
-            """)
-            
-            columns = [col[0] for col in cursor.description]
-            projects = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"External projects retrieved: {len(projects)}")
-        return Response(projects)
-    except Exception as e:
-        logger.error(f"Error retrieving external projects: {str(e)}")
-        return Response(
-            {"detail": f"Error retrieving projects: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    projects = execute_query("""
+        SELECT epd.project_id, epr.ext_project_name
+        FROM project_management.external_project_details epd
+        JOIN project_management.external_project_request epr 
+        ON epd.ext_project_request_id = epr.ext_project_request_id
+    """)
+    
+    logger.info(f"External projects retrieved: {len(projects)}")
+    return Response(projects)
 
 @api_view(['GET'])
+@db_operation("retrieving internal labor")
 def get_internal_labor(request):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT pl.project_labor_id, pl.intrnl_project_id, pl.employee_id, 
-                       e.first_name, e.last_name
-                FROM project_management.project_labor pl
-                JOIN human_resources.employees e ON pl.employee_id = e.employee_id
-                WHERE pl.intrnl_project_id IS NOT NULL
-            """)
-            
-            columns = [col[0] for col in cursor.description]
-            labor = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"Internal labor retrieved: {len(labor)}")
-        return Response(labor)
-    except Exception as e:
-        logger.error(f"Error retrieving internal labor: {str(e)}")
-        return Response(
-            {"detail": f"Error retrieving labor: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    labor = execute_query("""
+        SELECT pl.project_labor_id, pl.intrnl_project_id, pl.employee_id, 
+               e.first_name, e.last_name
+        FROM project_management.project_labor pl
+        JOIN human_resources.employees e ON pl.employee_id = e.employee_id
+        WHERE pl.intrnl_project_id IS NOT NULL
+    """)
+    
+    logger.info(f"Internal labor retrieved: {len(labor)}")
+    return Response(labor)
 
 @api_view(['GET'])
+@db_operation("retrieving external labor")
 def get_external_labor(request):
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT pl.project_labor_id, pl.project_id, pl.employee_id, 
-                       e.first_name, e.last_name
-                FROM project_management.project_labor pl
-                JOIN human_resources.employees e ON pl.employee_id = e.employee_id
-                WHERE pl.project_id IS NOT NULL
-            """)
-            
-            columns = [col[0] for col in cursor.description]
-            labor = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            
-        logger.info(f"External labor retrieved: {len(labor)}")
-        return Response(labor)
-    except Exception as e:
-        logger.error(f"Error retrieving external labor: {str(e)}")
+    labor = execute_query("""
+        SELECT pl.project_labor_id, pl.project_id, pl.employee_id, 
+               e.first_name, e.last_name
+        FROM project_management.project_labor pl
+        JOIN human_resources.employees e ON pl.employee_id = e.employee_id
+        WHERE pl.project_id IS NOT NULL
+    """)
+    
+    logger.info(f"External labor retrieved: {len(labor)}")
+    return Response(labor)
+
+@api_view(['GET'])
+def get_employee_details(request, employee_id):
+    """Get details for a specific employee"""
+    if not employee_id:
         return Response(
-            {"detail": f"Error retrieving labor: {str(e)}"},
+            {"detail": "Employee ID is required"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Add logging to see what's being requested
+        logger.info(f"Fetching details for employee ID: {employee_id}")
+        
+        # Query the employees table with joins to get department name and position title
+        employee = execute_query("""
+            SELECT 
+                e.employee_id, 
+                e.dept_id,
+                d.dept_name,  -- Get department name
+                e.position_id,
+                p.position_title,  -- Get position title
+                e.first_name, 
+                e.last_name, 
+                e.phone, 
+                e.employment_type, 
+                e.status
+            FROM 
+                human_resources.employees e
+            LEFT JOIN
+                human_resources.departments d ON e.dept_id = d.dept_id
+            LEFT JOIN
+                human_resources.positions p ON e.position_id = p.position_id
+            WHERE 
+                e.employee_id = %s
+        """, [employee_id], fetch_all=False)
+        
+        # Log the result to see what we're getting
+        logger.info(f"Employee details retrieved: {employee}")
+        
+        if not employee:
+            return Response(
+                {"detail": f"Employee with ID {employee_id} not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Return the employee record directly
+        return Response(employee)
+    except Exception as e:
+        logger.error(f"Error fetching employee details: {str(e)}")
+        return Response(
+            {"detail": f"Error fetching employee details: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

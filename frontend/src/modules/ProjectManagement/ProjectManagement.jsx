@@ -47,7 +47,7 @@ const BodyContent = () => {
     const fetchOverdueTasks = async () => {
         setIsLoading(prev => ({ ...prev, overdueTasks: true }));
         try {
-            const response = await axios.get('/api/overdue-tasks/');
+            const response = await axios.get('/api/dashboard/overdue-tasks/');
             setOverdueTasks(response.data);
             setErrors(prev => ({ ...prev, overdueTasks: null }));
         } catch (error) {
@@ -61,7 +61,7 @@ const BodyContent = () => {
     const fetchTodayTasks = async () => {
         setIsLoading(prev => ({ ...prev, todayTasks: true }));
         try {
-            const response = await axios.get('/api/today-tasks/');
+            const response = await axios.get('/api/dashboard/today-tasks/');
             setTodayTasks(response.data);
             setErrors(prev => ({ ...prev, todayTasks: null }));
         } catch (error) {
@@ -75,7 +75,7 @@ const BodyContent = () => {
     const fetchProjectSummary = async () => {
       setIsLoading(prev => ({ ...prev, projectSummary: true }));
       try {
-          const response = await axios.get('/api/project-summary/');
+        const response = await axios.get('/api/dashboard/project-summary/');
           console.log("Project summary data:", response.data);
           setProjectSummary(response.data);
           setErrors(prev => ({ ...prev, projectSummary: null }));
@@ -92,7 +92,7 @@ const BodyContent = () => {
         setDetailError(null);
         
         try {
-            const response = await axios.get(`/api/project-detail/${project.type}/${project.id}/`);
+            const response = await axios.get(`/api/dashboard/project-detail/${project.type}/${project.id}/`);
             setProjectDetail(response.data);
         } catch (error) {
             console.error("Error fetching project details:", error);
