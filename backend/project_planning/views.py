@@ -1,12 +1,15 @@
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.db import connection
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.core.cache import cache
 import uuid
 import logging
 from functools import wraps
-from django.core.cache import cache
 
 from .models import (
     ExternalProjectRequest, ExternalProjectDetails, ExternalProjectLabor,
@@ -23,7 +26,7 @@ from .serializers import (
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# ======================= HELPER FUNCTIONS =======================
+# ======================= HELPER FUNCTIONS AND MIXINS =======================
 
 def generate_id(prefix):
     """Generate a unique ID with the given prefix"""
@@ -48,1194 +51,1183 @@ def api_exception_handler(func):
     return wrapper
 
 
-def execute_query(query, params=None, fetchone=False, fetchall=False):
-    """Execute a database query with proper error handling"""
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(query, params or [])
-            
-            if fetchone:
-                return cursor.fetchone()
-            elif fetchall:
-                columns = [col[0] for col in cursor.description]
-                return [dict(zip(columns, row)) for row in cursor.fetchall()]
-            return True
-    except Exception as e:
-        logger.exception(f"Database query error: {str(e)}")
-        raise
-
-
-def validate_employee_exists(employee_id):
-    """Validate that an employee exists in the database"""
-    if not employee_id:
-        return True  # No validation needed if no ID provided
+class QueryExecutor:
+    """Class to execute database queries with proper error handling"""
     
-    cache_key = f"employee_exists_{employee_id}"
-    exists = cache.get(cache_key)
-    
-    if exists is None:
+    @staticmethod
+    def execute(query, params=None, fetchone=False, fetchall=False):
+        """Execute a database query with proper error handling"""
         try:
-            employee_exists = execute_query(
-                "SELECT COUNT(*) FROM human_resources.employees WHERE employee_id = %s",
-                [employee_id],
+            with connection.cursor() as cursor:
+                cursor.execute(query, params or [])
+                
+                if fetchone:
+                    return cursor.fetchone()
+                elif fetchall:
+                    columns = [col[0] for col in cursor.description]
+                    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return True
+        except Exception as e:
+            logger.exception(f"Database query error: {str(e)}")
+            raise
+
+
+class ValidationMixin:
+    """Mixin for common validation tasks"""
+    
+    @staticmethod
+    def validate_employee_exists(employee_id):
+        """Validate that an employee exists in the database"""
+        if not employee_id:
+            return True  # No validation needed if no ID provided
+        
+        cache_key = f"employee_exists_{employee_id}"
+        exists = cache.get(cache_key)
+        
+        if exists is None:
+            try:
+                employee_exists = QueryExecutor.execute(
+                    "SELECT COUNT(*) FROM human_resources.employees WHERE employee_id = %s",
+                    [employee_id],
+                    fetchone=True
+                )
+                exists = employee_exists and employee_exists[0] > 0
+                cache.set(cache_key, exists, 300)  # Cache for 5 minutes
+            except Exception:
+                # If we can't check, assume it exists to avoid blocking operations
+                logger.warning(f"Could not verify if employee {employee_id} exists")
+                return True
+        
+        return exists
+    
+    @staticmethod
+    def validate_project_exists(project_id, is_internal=False):
+        """Validate that a project exists in the database"""
+        if not project_id:
+            return False
+        
+        table = "internal_project_details" if is_internal else "external_project_details"
+        id_field = "intrnl_project_id" if is_internal else "project_id"
+        
+        try:
+            project_exists = QueryExecutor.execute(
+                f"SELECT COUNT(*) FROM project_management.{table} WHERE {id_field} = %s",
+                [project_id],
                 fetchone=True
             )
-            exists = employee_exists and employee_exists[0] > 0
-            cache.set(cache_key, exists, 300)  # Cache for 5 minutes
-        except Exception:
-            # If we can't check, assume it exists to avoid blocking operations
-            logger.warning(f"Could not verify if employee {employee_id} exists")
-            return True
-    
-    return exists
+            return project_exists and project_exists[0] > 0
+        except Exception as e:
+            logger.warning(f"Could not verify if project {project_id} exists: {str(e)}")
+            return False
 
 
-def validate_project_exists(project_id, is_internal=False):
-    """Validate that a project exists in the database"""
-    if not project_id:
-        return False
+# ======================= EXTERNAL PROJECT VIEWS =======================
+
+class ExternalProjectRequestView(APIView):
+    """View for creating external project requests"""
     
-    table = "internal_project_details" if is_internal else "external_project_details"
-    id_field = "intrnl_project_id" if is_internal else "project_id"
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        data = {
+            'ext_project_request_id': generate_id('EPR'),
+            'ext_project_name': request.data.get('ProjectName'),
+            'ext_project_description': request.data.get('ProjectDescription'),
+            'approval_id': request.data.get('ApprovalID'),
+            'item_id': request.data.get('OrderID')
+        }
+        
+        serializer = ExternalProjectRequestSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExternalProjectDetailsView(APIView):
+    """View for creating external project details"""
     
-    try:
-        project_exists = execute_query(
-            f"SELECT COUNT(*) FROM project_management.{table} WHERE {id_field} = %s",
-            [project_id],
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        project_request_id = request.data.get('ProjectRequestID')
+        project_request = get_object_or_404(ExternalProjectRequest, ext_project_request_id=project_request_id)
+        
+        data = {
+            'project_id': generate_id('EPD'),
+            'ext_project_request': project_request_id,
+            'project_status': request.data.get('ProjectStatus', 'Pending')
+        }
+        
+        serializer = ExternalProjectDetailsSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExternalProjectLaborView(APIView, ValidationMixin):
+    """View for adding labor to an external project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        logger.debug(f"Received data for adding project labor: {request.data}")
+        
+        project_id = request.data.get('ProjectID')
+        job_role_needed = request.data.get('JobRoleNeeded')
+        employee_id = request.data.get('EmployeeID')
+        
+        # Validate required fields
+        if not project_id:
+            return Response({'error': 'ProjectID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not job_role_needed:
+            return Response({'error': 'JobRoleNeeded is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify project exists
+        if not self.validate_project_exists(project_id):
+            return Response(
+                {'error': f'Project with ID {project_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verify employee exists if employee_id is provided
+        if employee_id and not self.validate_employee_exists(employee_id):
+            return Response(
+                {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create the labor record
+        labor_id = generate_id('LAB')
+        
+        QueryExecutor.execute(
+            """
+            INSERT INTO project_management.project_labor
+            (project_labor_id, project_id, job_role_needed, employee_id)
+            VALUES (%s, %s, %s, %s)
+            """,
+            [labor_id, project_id, job_role_needed, employee_id]
+        )
+        
+        return Response({
+            'project_labor_id': labor_id,
+            'project': project_id,
+            'job_role_needed': job_role_needed,
+            'employee_id': employee_id
+        }, status=status.HTTP_201_CREATED)
+
+
+class ExternalProjectEquipmentView(APIView, ValidationMixin):
+    """View for adding equipment to an external project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        project_id = request.data.get('ProjectID')
+        
+        # Verify project exists
+        if not self.validate_project_exists(project_id):
+            return Response(
+                {'error': f'Project with ID {project_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        data = {
+            'project_equipment_list_id': generate_id('EQL'),
+            'project': project_id,
+            'project_equipment_id': request.data.get('ProjectEquipmentID')
+        }
+        
+        serializer = ExternalProjectEquipmentsSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ExternalProjectWarrantyView(APIView, ValidationMixin):
+    """View for adding warranty information to an external project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        logger.debug(f"Received warranty data: {request.data}")
+        
+        project_id = request.data.get('ProjectID')
+        if not project_id:
+            return Response({'error': 'ProjectID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify project exists
+        if not self.validate_project_exists(project_id):
+            return Response(
+                {'error': f'Project with ID {project_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Validate warranty data
+        warranty_coverage_yr = request.data.get('Warrantycoverageyear')
+        warranty_start_date = request.data.get('Warrantystartdate')
+        warranty_end_date = request.data.get('Warrantyenddate')
+        
+        if not warranty_coverage_yr:
+            return Response({'error': 'Warranty coverage year is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not warranty_start_date:
+            return Response({'error': 'Warranty start date is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not warranty_end_date:
+            return Response({'error': 'Warranty end date is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            warranty_coverage_yr = int(warranty_coverage_yr)
+        except (ValueError, TypeError):
+            return Response(
+                {'error': 'Warranty coverage year must be a number'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        from datetime import datetime
+        try:
+            start_date = datetime.strptime(warranty_start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(warranty_end_date, '%Y-%m-%d').date()
+            
+            if end_date <= start_date:
+                return Response(
+                    {'error': 'Warranty end date must be after warranty start date'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except ValueError:
+            return Response(
+                {'error': 'Invalid date format. Use YYYY-MM-DD format.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update the project details with warranty information
+        QueryExecutor.execute(
+            """
+            UPDATE project_management.external_project_details
+            SET warranty_coverage_yr = %s, 
+                warranty_start_date = %s, 
+                warranty_end_date = %s
+            WHERE project_id = %s
+            """,
+            [warranty_coverage_yr, warranty_start_date, warranty_end_date, project_id]
+        )
+        
+        return Response({
+            'project_id': project_id,
+            'warranty_coverage_yr': warranty_coverage_yr,
+            'warranty_start_date': warranty_start_date,
+            'warranty_end_date': warranty_end_date,
+            'message': 'Warranty information updated successfully'
+        }, status=status.HTTP_200_OK)
+
+
+class UpdateExternalProjectDetailsView(APIView):
+    """View for updating external project details"""
+    
+    @method_decorator(api_exception_handler)
+    def put(self, request, project_request_id):
+        logger.debug(f"Looking for project request with ID: {project_request_id}")
+        
+        try:
+            project_request = ExternalProjectRequest.objects.get(ext_project_request_id=project_request_id)
+            logger.debug(f"Found project request: {project_request.ext_project_name}")
+        except ExternalProjectRequest.DoesNotExist:
+            logger.debug(f"Project request with ID {project_request_id} not found")
+            return Response(
+                {'error': f'Project request with ID {project_request_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        try:
+            project_details = ExternalProjectDetails.objects.filter(ext_project_request_id=project_request_id).first()
+            if project_details:
+                logger.debug(f"Found project details with ID: {project_details.project_id}")
+            else:
+                logger.debug(f"No project details found for request ID: {project_request_id}")
+                new_project_id = generate_id('EPD')
+                logger.debug(f"Creating new project details with ID: {new_project_id}")
+                project_details = ExternalProjectDetails(
+                    project_id=new_project_id,
+                    ext_project_request_id=project_request_id,
+                    project_status='Pending'
+                )
+        except Exception as e:
+            logger.exception(f"Error finding/creating project details: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        try:
+            if 'project_status' in request.data:
+                logger.debug(f"Updating project status to: {request.data['project_status']}")
+                project_details.project_status = request.data['project_status']
+                project_details.save()
+        except Exception as e:
+            logger.exception(f"Error updating project status: {str(e)}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'project_id': project_details.project_id,
+            'ext_project_request_id': project_request_id,
+            'project_status': project_details.project_status
+        })
+
+
+class ExternalProjectCostManagementView(APIView, ValidationMixin):
+    """View for adding cost management information to an external project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        logger.debug(f"Received cost management data: {request.data}")
+        
+        # Get the required data
+        project_id = request.data.get('ProjectID')
+        bom_id = request.data.get('BomID')
+        budget_approvals_id = request.data.get('ProjectBudgetApproval')
+        
+        # Validate required fields
+        if not project_id:
+            return Response({'error': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if the project exists
+        if not self.validate_project_exists(project_id):
+            return Response(
+                {'error': f'Project with ID {project_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Generate a unique ID for the resource
+        resource_id = generate_id('RES')
+        
+        # Create response data
+        response_data = {
+            'message': 'Cost management record created',
+            'project_id': project_id,
+            'bom_id': bom_id or 'Not specified',
+            'budget_approvals_id': budget_approvals_id or 'Not specified',
+            'project_resources_id': resource_id
+        }
+        
+        # Try to insert the record using the most likely table structure
+        try:
+            QueryExecutor.execute(
+                """
+                INSERT INTO project_management.project_costs
+                (project_id, bom_id, budget_approvals_id)
+                VALUES (%s, %s, %s)
+                """,
+                [project_id, bom_id, budget_approvals_id]
+            )
+            logger.debug("Successfully saved cost management record")
+        except Exception as e:
+            logger.warning(f"Could not save cost management record: {str(e)}")
+            response_data['warning'] = "Record may not have been saved to database"
+        
+        return Response(response_data, status=status.HTTP_201_CREATED)
+
+
+class ExternalProjectRequestsListView(APIView):
+    """View for getting a list of all external project requests"""
+    
+    @method_decorator(api_exception_handler)
+    @method_decorator(cache_page(60))  # Cache for 1 minute
+    def get(self, request):
+        try:
+            results = QueryExecutor.execute("""
+                SELECT 
+                    epr.ext_project_request_id AS project_request_id,
+                    epr.ext_project_name AS project_name,
+                    epr.approval_id,
+                    epr.item_id,
+                    epd.start_date,
+                    epd.project_status
+                FROM 
+                    project_management.external_project_request epr
+                LEFT JOIN 
+                    project_management.external_project_details epd 
+                    ON epr.ext_project_request_id = epd.ext_project_request_id
+                ORDER BY
+                    epr.ext_project_request_id DESC
+            """, fetchall=True)
+            
+            return Response(results)
+        except Exception as e:
+            logger.warning(f"Error getting external project requests with join: {str(e)}")
+            # Fallback to a simpler query if the join fails
+            results = QueryExecutor.execute("""
+                SELECT 
+                    ext_project_request_id AS project_request_id,
+                    ext_project_name AS project_name,
+                    approval_id,
+                    item_id
+                FROM 
+                    project_management.external_project_request
+                ORDER BY
+                    ext_project_request_id DESC
+            """, fetchall=True)
+            
+            # Add empty values for missing columns
+            for result in results:
+                result['start_date'] = None
+                result['project_status'] = None
+            
+            return Response(results)
+
+
+# ======================= INTERNAL PROJECT VIEWS =======================
+
+class InternalProjectView(APIView, ValidationMixin):
+    """View for creating a new internal project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        logger.debug(f"Received data: {request.data}")
+        
+        # Get required fields from the request
+        project_name = request.data.get('ProjectNameint')
+        request_date = request.data.get('RequestDateint')
+        starting_date = request.data.get('Startingdateint')
+        employee_id = request.data.get('EmployeeIDint')
+        department_id = request.data.get('DepartmentIDint')
+        reason_for_request = request.data.get('ReasonForRequestint')
+        materials_needed = request.data.get('MaterialsNeededint')
+        equipment_needed = request.data.get('EquipmentNeededint')
+        project_type = request.data.get('ProjectTypeint')
+        
+        # Validate required fields
+        if not project_name:
+            return Response({'error': 'Project name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not request_date:
+            return Response({'error': 'Request date is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify employee exists if employee_id is provided
+        if employee_id and not self.validate_employee_exists(employee_id):
+            return Response(
+                {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Valid project types based on the database enum
+        valid_project_types = ["Training Program", "Department Event", "Facility Maintenance"]
+        
+        # Check if provided project_type is valid
+        if project_type and project_type not in valid_project_types:
+            return Response({
+                'error': f'Invalid project type: {project_type}. Valid types are: {valid_project_types}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate a unique ID for the project request
+        project_request_id = generate_id('IPR')
+        
+        # Insert the project request
+        QueryExecutor.execute(
+            """
+            INSERT INTO project_management.internal_project_request
+            (project_request_id, project_name, request_date, employee_id, dept_id, 
+            reason_for_request, materials_needed, equipments_needed, project_type, is_archived)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            [
+                project_request_id, 
+                project_name,
+                request_date,
+                employee_id,
+                department_id,
+                reason_for_request,
+                materials_needed,
+                equipment_needed,
+                project_type,
+                False
+            ]
+        )
+        
+        logger.debug(f"Created internal project request with ID: {project_request_id}")
+        
+        # If we have starting_date, create a project details record
+        if starting_date:
+            try:
+                details_id = generate_id('IPD')
+                QueryExecutor.execute(
+                    """
+                    INSERT INTO project_management.internal_project_details
+                    (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    [details_id, project_request_id, 'not started', starting_date]
+                )
+                logger.debug(f"Created internal project details with ID: {details_id}")
+            except Exception as e:
+                logger.warning(f"Error creating project details: {str(e)}")
+                # Continue anyway - this is not critical
+        
+        # Return success response
+        return Response({
+            'project_request_id': project_request_id,
+            'project_name': project_name,
+            'message': 'Internal project request created successfully'
+        }, status=status.HTTP_201_CREATED)
+
+
+class UpdateInternalProjectDetailsView(APIView):
+    """View for updating internal project details"""
+    
+    @method_decorator(api_exception_handler)
+    def put(self, request, project_request_id):
+        logger.debug(f"Updating internal project details for request ID: {project_request_id}")
+        logger.debug(f"Received data: {request.data}")
+        
+        # Find the project request first
+        project_request = QueryExecutor.execute(
+            """
+            SELECT project_request_id, project_name 
+            FROM project_management.internal_project_request
+            WHERE project_request_id = %s
+            """,
+            [project_request_id],
             fetchone=True
         )
-        return project_exists and project_exists[0] > 0
-    except Exception as e:
-        logger.warning(f"Could not verify if project {project_id} exists: {str(e)}")
-        return False
+        
+        if not project_request:
+            return Response(
+                {'error': f'Project request with ID {project_request_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        logger.debug(f"Found project request: {project_request[1]}")
+        
+        # Check if project details exist for this request
+        project_details = QueryExecutor.execute(
+            """
+            SELECT intrnl_project_id
+            FROM project_management.internal_project_details
+            WHERE project_request_id = %s
+            """,
+            [project_request_id],
+            fetchone=True
+        )
+        
+        project_details_exist = bool(project_details)
+        project_id = project_details[0] if project_details_exist else None
+        
+        if project_details_exist:
+            logger.debug(f"Found existing project details with ID: {project_id}")
+        
+        # Update or create project details
+        new_status = request.data.get('intrnl_project_status')
+        new_approval_id = request.data.get('approval_id')
+        
+        if project_details_exist:
+            # Update existing record
+            update_fields = []
+            update_values = []
+            
+            if new_status:
+                update_fields.append("intrnl_project_status = %s")
+                update_values.append(new_status)
+            
+            if new_approval_id:
+                update_fields.append("approval_id = %s")
+                update_values.append(new_approval_id)
+            
+            if update_fields:
+                QueryExecutor.execute(
+                    f"""
+                    UPDATE project_management.internal_project_details
+                    SET {', '.join(update_fields)}
+                    WHERE project_request_id = %s
+                    """,
+                    update_values + [project_request_id]
+                )
+                logger.debug(f"Updated project details for request ID: {project_request_id}")
+        else:
+            # Create new record
+            new_project_id = generate_id('IPD')
+            project_id = new_project_id
+            
+            if not new_status:
+                new_status = 'not started'
+            
+            QueryExecutor.execute(
+                """
+                INSERT INTO project_management.internal_project_details
+                (intrnl_project_id, project_request_id, intrnl_project_status, approval_id)
+                VALUES (%s, %s, %s, %s)
+                """,
+                [new_project_id, project_request_id, new_status, new_approval_id]
+            )
+            logger.debug(f"Created new project details with ID: {new_project_id}")
+        
+        # Update project description if provided
+        if 'project_description' in request.data and request.data['project_description']:
+            QueryExecutor.execute(
+                """
+                UPDATE project_management.internal_project_request
+                SET reason_for_request = %s
+                WHERE project_request_id = %s
+                """,
+                [request.data['project_description'], project_request_id]
+            )
+            logger.debug(f"Updated project description for request ID: {project_request_id}")
+        
+        # Return success response
+        return Response({
+            'intrnl_project_id': project_id,
+            'project_request_id': project_request_id,
+            'intrnl_project_status': new_status,
+            'approval_id': new_approval_id,
+            'message': 'Project details updated successfully'
+        })
 
 
-# ======================= EXTERNAL PROJECT ENDPOINTS =======================
+class InternalProjectLaborView(APIView, ValidationMixin):
+    """View for adding labor to an internal project"""
+    
+    @method_decorator(api_exception_handler)
+    def post(self, request):
+        logger.debug(f"Adding internal project labor with data: {request.data}")
+        
+        project_id = request.data.get('Projectidint')
+        job_role = request.data.get('Jobroleint')
+        employee_id = request.data.get('EmployeeIDint')
+        
+        if not project_id:
+            return Response({'error': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not job_role:
+            return Response({'error': 'Job role is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify project exists
+        if not self.validate_project_exists(project_id, is_internal=True):
+            return Response(
+                {'error': f'Project with ID {project_id} not found'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Verify employee exists if employee_id is provided
+        if employee_id and not self.validate_employee_exists(employee_id):
+            return Response(
+                {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        labor_id = generate_id('LAB')
+        
+        QueryExecutor.execute(
+            """
+            INSERT INTO project_management.project_labor
+            (project_labor_id, intrnl_project_id, job_role_needed, employee_id)
+            VALUES (%s, %s, %s, %s)
+            """,
+            [labor_id, project_id, job_role, employee_id]
+        )
+        
+        logger.debug(f"Inserted internal project labor with ID: {labor_id}")
+        
+        return Response({
+            'project_labor_id': labor_id,
+            'intrnl_project_id': project_id,
+            'job_role_needed': job_role,
+            'employee_id': employee_id,
+            'message': 'Internal project labor added successfully'
+        }, status=status.HTTP_201_CREATED)
 
+
+class InternalProjectRequestsListView(APIView):
+    """View for getting a list of all internal project requests"""
+    
+    @method_decorator(api_exception_handler)
+    @method_decorator(cache_page(60))  # Cache for 1 minute
+    def get(self, request):
+        try:
+            # Get valid enum values for project status
+            enum_values = QueryExecutor.execute(
+                "SELECT enum_range(NULL::intrnl_project_status)",
+                fetchone=True
+            )
+            
+            if enum_values and enum_values[0]:
+                enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
+                enum_values = [val.strip('"') for val in enum_values]
+                default_status = enum_values[0] if enum_values else 'not started'
+            else:
+                default_status = 'not started'
+            
+            logger.debug(f"Valid project status values: {enum_values}")
+            
+            # Get the project requests with details
+            results = QueryExecutor.execute(f"""
+                SELECT 
+                    ipr.project_request_id,
+                    ipr.project_name,
+                    COALESCE(ipd.approval_id, 'N/A') AS approval_id,
+                    ipr.request_date,
+                    CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
+                    d.dept_name,
+                    COALESCE(ipd.intrnl_project_status, '{default_status}') AS project_status
+                FROM 
+                    project_management.internal_project_request ipr
+                LEFT JOIN 
+                    project_management.internal_project_details ipd 
+                    ON ipr.project_request_id = ipd.project_request_id
+                LEFT JOIN 
+                    human_resources.employees e 
+                    ON ipr.employee_id = e.employee_id
+                LEFT JOIN 
+                    human_resources.departments d 
+                    ON ipr.dept_id = d.dept_id
+                ORDER BY
+                    ipr.request_date DESC
+            """, fetchall=True)
+            
+            # Process results for display
+            for result in results:
+                if not result.get('employee_name'):
+                    result['employee_name'] = 'Unknown'
+                
+                if not result.get('dept_name'):
+                    result['dept_name'] = 'Unknown'
+                
+                # Ensure approval_id is not None
+                if result.get('approval_id') is None:
+                    result['approval_id'] = 'N/A'
+                
+                # Format the project status for display
+                status = result.get('project_status', default_status)
+                result['project_status'] = status.replace('_', ' ').title()
+                
+                # Rename fields to match frontend expectations
+                result['employee'] = result.pop('employee_name')
+                result['department'] = result.pop('dept_name')
+            
+            return Response(results)
+        except Exception as e:
+            logger.warning(f"Error getting internal project requests with join: {str(e)}")
+            # Fallback to a more basic query if the complex one fails
+            basic_results = QueryExecutor.execute("""
+                SELECT 
+                    project_request_id,
+                    project_name,
+                    request_date,
+                    employee_id,
+                    dept_id
+                FROM 
+                    project_management.internal_project_request
+                ORDER BY
+                    request_date DESC
+            """, fetchall=True)
+            
+            # Process each result to add missing information
+            for result in basic_results:
+                result['approval_id'] = 'N/A'
+                result['employee'] = result.get('employee_id', 'Unknown')
+                result['department'] = result.get('dept_id', 'Unknown')
+                result['project_status'] = 'Not Started'
+                
+                # Remove the ID fields that we replaced with names
+                if 'employee_id' in result:
+                    del result['employee_id']
+                if 'dept_id' in result:
+                    del result['dept_id']
+            
+            return Response(basic_results)
+
+
+# ======================= UTILITY VIEWS =======================
+
+class CachedListView(APIView):
+    """Base class for views that return cached lists"""
+    
+    cache_key = None
+    cache_timeout = 300  # 5 minutes
+    
+    def get_data(self):
+        """Override this method to provide the actual data"""
+        raise NotImplementedError
+    
+    @method_decorator(api_exception_handler)
+    def get(self, request):
+        if not self.cache_key:
+            raise ValueError("cache_key must be set")
+            
+        cached_data = cache.get(self.cache_key)
+        
+        if cached_data:
+            return Response(cached_data)
+        
+        data = self.get_data()
+        cache.set(self.cache_key, data, self.cache_timeout)
+        return Response(data)
+
+
+class ExternalApprovalIdsView(CachedListView):
+    """View for getting a list of all external approval IDs"""
+    
+    cache_key = "external_approval_ids"
+    
+    def get_data(self):
+        approval_ids = QueryExecutor.execute("""
+            SELECT DISTINCT approval_id 
+            FROM project_management.external_project_request
+            WHERE approval_id IS NOT NULL
+        """, fetchall=True)
+        
+        return [row['approval_id'] for row in approval_ids]
+
+
+class InternalApprovalIdsView(CachedListView):
+    """View for getting a list of all internal approval IDs"""
+    
+    cache_key = "internal_approval_ids"
+    
+    def get_data(self):
+        approval_ids = []
+        
+        # Get from internal project details
+        internal_ids = QueryExecutor.execute("""
+            SELECT DISTINCT approval_id 
+            FROM project_management.internal_project_details
+            WHERE approval_id IS NOT NULL
+        """, fetchall=True)
+        
+        approval_ids.extend([row['approval_id'] for row in internal_ids])
+        
+        # Try to get from management approvals table
+        try:
+            management_ids = QueryExecutor.execute("""
+                SELECT DISTINCT approval_id 
+                FROM management.management_approvals
+                WHERE approval_id IS NOT NULL
+            """, fetchall=True)
+            
+            approval_ids.extend([row['approval_id'] for row in management_ids])
+        except Exception as e:
+            logger.warning(f"Could not query management.management_approvals: {str(e)}")
+        
+        # Remove duplicates and sort
+        return sorted(list(set(approval_ids)))
+
+
+class OrderIdsView(CachedListView):
+    """View for getting a list of all order IDs"""
+    
+    cache_key = "order_ids"
+    
+    def get_data(self):
+        order_ids = list(ExternalProjectRequest.objects.values_list('item_id', flat=True).distinct())
+        return [id for id in order_ids if id]
+
+
+class ExternalProjectRequestIdsView(CachedListView):
+    """View for getting a list of all external project request IDs"""
+    
+    cache_key = "external_project_request_ids"
+    
+    def get_data(self):
+        return list(ExternalProjectRequest.objects.values_list('ext_project_request_id', flat=True))
+
+
+class ExternalProjectIdsView(CachedListView):
+    """View for getting a list of all external project IDs"""
+    
+    cache_key = "external_project_ids"
+    
+    def get_data(self):
+        return list(ExternalProjectDetails.objects.values_list('project_id', flat=True))
+
+
+class EmployeeIdsView(CachedListView):
+    """View for getting a list of all employee IDs and names"""
+    
+    cache_key = "employee_ids"
+    
+    def get_data(self):
+        try:
+            # Try to query the employees table
+            employees = QueryExecutor.execute("""
+                SELECT employee_id, first_name, last_name 
+                FROM human_resources.employees 
+                WHERE employee_id IS NOT NULL
+            """, fetchall=True)
+            
+            if employees:
+                return [{
+                    "id": emp['employee_id'], 
+                    "name": f"{emp['first_name']} {emp['last_name']}"
+                } for emp in employees]
+            
+            # If the first query fails, try an alternative approach
+            employees = QueryExecutor.execute("""
+                SELECT DISTINCT pl.employee_id, e.first_name, e.last_name
+                FROM project_management.project_labor pl
+                JOIN human_resources.employees e ON pl.employee_id = e.employee_id
+                WHERE pl.employee_id IS NOT NULL
+            """, fetchall=True)
+            
+            if employees:
+                return [{
+                    "id": emp['employee_id'], 
+                    "name": f"{emp['first_name']} {emp['last_name']}"
+                } for emp in employees]
+        except Exception as e:
+            logger.warning(f"Could not query employees: {str(e)}")
+        
+        # Return sample data as a fallback
+        return [
+            {"id": "EMP-001", "name": "John Doe"},
+            {"id": "EMP-002", "name": "Jane Smith"},
+            {"id": "EMP-003", "name": "Michael Johnson"}
+        ]
+
+
+class EquipmentIdsView(CachedListView):
+    """View for getting a list of all equipment IDs"""
+    
+    cache_key = "equipment_ids"
+    
+    def get_data(self):
+        ids = list(ExternalProjectEquipments.objects.values_list('project_equipment_id', flat=True).distinct())
+        return [id for id in ids if id]
+
+
+class InternalProjectRequestIdsView(CachedListView):
+    """View for getting a list of all internal project request IDs"""
+    
+    cache_key = "internal_project_request_ids"
+    
+    def get_data(self):
+        return list(InternalProjectRequest.objects.values_list('project_request_id', flat=True))
+
+
+class InternalProjectIdsView(CachedListView):
+    """View for getting a list of all internal project IDs"""
+    
+    cache_key = "internal_project_ids"
+    
+    def get_data(self):
+        return list(InternalProjectDetails.objects.values_list('intrnl_project_id', flat=True))
+
+
+class DepartmentIdsView(CachedListView):
+    """View for getting a list of all department IDs"""
+    
+    cache_key = "department_ids"
+    
+    def get_data(self):
+        ids = list(InternalProjectRequest.objects.values_list('dept_id', flat=True).distinct())
+        return [id for id in ids if id]
+
+
+class ProjectStatusValuesView(CachedListView):
+    """View for getting a list of all possible project status values"""
+    
+    cache_key = "project_status_values"
+    cache_timeout = 3600  # 1 hour
+    
+    def get_data(self):
+        try:
+            enum_values = QueryExecutor.execute("SELECT enum_range(NULL::project_status)", fetchone=True)
+            if enum_values and enum_values[0]:
+                enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
+                return [val.strip('"') for val in enum_values]
+        except Exception:
+            pass
+        
+        # Fallback to default values
+        return ['not started', 'in progress', 'completed']
+
+
+class InternalProjectStatusValuesView(CachedListView):
+    """View for getting a list of all possible internal project status values"""
+    
+    cache_key = "internal_project_status_values"
+    cache_timeout = 3600  # 1 hour
+    
+    def get_data(self):
+        try:
+            enum_values = QueryExecutor.execute("SELECT enum_range(NULL::intrnl_project_status)", fetchone=True)
+            if enum_values and enum_values[0]:
+                enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
+                return [val.strip('"') for val in enum_values]
+        except Exception:
+            pass
+        
+        # Fallback to default values
+        return ['not started', 'in progress', 'completed']
+
+
+class BomIdsView(CachedListView):
+    """View for getting a list of all BOM IDs from cost management"""
+    
+    cache_key = "bom_ids"
+    
+    def get_data(self):
+        bom_ids = QueryExecutor.execute("""
+            SELECT DISTINCT bom_id
+            FROM project_management.project_costs
+            WHERE bom_id IS NOT NULL
+        """, fetchall=True)
+        
+        return [row['bom_id'] for row in bom_ids]
+
+
+class BudgetApprovalIdsView(CachedListView):
+    """View for getting a list of all budget approval IDs from cost management"""
+    
+    cache_key = "budget_approval_ids"
+    
+    def get_data(self):
+        budget_ids = QueryExecutor.execute("""
+            SELECT DISTINCT budget_approvals_id
+            FROM project_management.project_costs
+            WHERE budget_approvals_id IS NOT NULL
+        """, fetchall=True)
+        
+        return [row['budget_approvals_id'] for row in budget_ids]
+
+
+class ClearCacheView(APIView):
+    """View for clearing the application cache"""
+    
+    @method_decorator(api_exception_handler)
+    def get(self, request):
+        cache.clear()
+        return Response({'message': 'Cache cleared successfully'})
+
+
+# ======================= FUNCTION-BASED VIEWS (for compatibility with URLs) =======================
+
+# External Project Views
 @api_view(['POST'])
 @api_exception_handler
 def create_external_project_request(request):
-    """Create a new external project request"""
-    data = {
-        'ext_project_request_id': generate_id('EPR'),
-        'ext_project_name': request.data.get('ProjectName'),
-        'ext_project_description': request.data.get('ProjectDescription'),
-        'approval_id': request.data.get('ApprovalID'),
-        'item_id': request.data.get('OrderID')
-    }
-    
-    serializer = ExternalProjectRequestSerializer(data=data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    return ExternalProjectRequestView().post(request)
 
 @api_view(['POST'])
 @api_exception_handler
 def create_external_project_details(request):
-    """Create details for an external project"""
-    project_request_id = request.data.get('ProjectRequestID')
-    project_request = get_object_or_404(ExternalProjectRequest, ext_project_request_id=project_request_id)
-    
-    data = {
-        'project_id': generate_id('EPD'),
-        'ext_project_request': project_request_id,
-        'project_status': request.data.get('ProjectStatus', 'Pending')
-    }
-    
-    serializer = ExternalProjectDetailsSerializer(data=data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    return ExternalProjectDetailsView().post(request)
 
 @api_view(['POST'])
 @api_exception_handler
 def add_external_project_labor(request):
-    """Add labor to an external project"""
-    logger.debug(f"Received data for adding project labor: {request.data}")
-    
-    project_id = request.data.get('ProjectID')
-    job_role_needed = request.data.get('JobRoleNeeded')
-    employee_id = request.data.get('EmployeeID')
-    
-    # Validate required fields
-    if not project_id:
-        return Response({'error': 'ProjectID is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not job_role_needed:
-        return Response({'error': 'JobRoleNeeded is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Verify project exists
-    if not validate_project_exists(project_id):
-        return Response(
-            {'error': f'Project with ID {project_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    # Verify employee exists if employee_id is provided
-    if employee_id and not validate_employee_exists(employee_id):
-        return Response(
-            {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Create the labor record
-    labor_id = generate_id('LAB')
-    
-    execute_query(
-        """
-        INSERT INTO project_management.project_labor
-        (project_labor_id, project_id, job_role_needed, employee_id)
-        VALUES (%s, %s, %s, %s)
-        """,
-        [labor_id, project_id, job_role_needed, employee_id]
-    )
-    
-    return Response({
-        'project_labor_id': labor_id,
-        'project': project_id,
-        'job_role_needed': job_role_needed,
-        'employee_id': employee_id
-    }, status=status.HTTP_201_CREATED)
-
+    return ExternalProjectLaborView().post(request)
 
 @api_view(['POST'])
 @api_exception_handler
 def add_external_project_equipment(request):
-    """Add equipment to an external project"""
-    project_id = request.data.get('ProjectID')
-    
-    # Verify project exists
-    if not validate_project_exists(project_id):
-        return Response(
-            {'error': f'Project with ID {project_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    data = {
-        'project_equipment_list_id': generate_id('EQL'),
-        'project': project_id,
-        'project_equipment_id': request.data.get('ProjectEquipmentID')
-    }
-    
-    serializer = ExternalProjectEquipmentsSerializer(data=data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    return ExternalProjectEquipmentView().post(request)
 
 @api_view(['POST'])
 @api_exception_handler
 def add_external_project_warranty(request):
-    """Add warranty information to an external project"""
-    logger.debug(f"Received warranty data: {request.data}")
-    
-    project_id = request.data.get('ProjectID')
-    if not project_id:
-        return Response({'error': 'ProjectID is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Verify project exists
-    if not validate_project_exists(project_id):
-        return Response(
-            {'error': f'Project with ID {project_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    # Validate warranty data
-    warranty_coverage_yr = request.data.get('Warrantycoverageyear')
-    warranty_start_date = request.data.get('Warrantystartdate')
-    warranty_end_date = request.data.get('Warrantyenddate')
-    
-    if not warranty_coverage_yr:
-        return Response({'error': 'Warranty coverage year is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not warranty_start_date:
-        return Response({'error': 'Warranty start date is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not warranty_end_date:
-        return Response({'error': 'Warranty end date is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    try:
-        warranty_coverage_yr = int(warranty_coverage_yr)
-    except (ValueError, TypeError):
-        return Response(
-            {'error': 'Warranty coverage year must be a number'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    from datetime import datetime
-    try:
-        start_date = datetime.strptime(warranty_start_date, '%Y-%m-%d').date()
-        end_date = datetime.strptime(warranty_end_date, '%Y-%m-%d').date()
-        
-        if end_date <= start_date:
-            return Response(
-                {'error': 'Warranty end date must be after warranty start date'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    except ValueError:
-        return Response(
-            {'error': 'Invalid date format. Use YYYY-MM-DD format.'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Update the project details with warranty information
-    execute_query(
-        """
-        UPDATE project_management.external_project_details
-        SET warranty_coverage_yr = %s, 
-            warranty_start_date = %s, 
-            warranty_end_date = %s
-        WHERE project_id = %s
-        """,
-        [warranty_coverage_yr, warranty_start_date, warranty_end_date, project_id]
-    )
-    
-    return Response({
-        'project_id': project_id,
-        'warranty_coverage_yr': warranty_coverage_yr,
-        'warranty_start_date': warranty_start_date,
-        'warranty_end_date': warranty_end_date,
-        'message': 'Warranty information updated successfully'
-    }, status=status.HTTP_200_OK)
-
+    return ExternalProjectWarrantyView().post(request)
 
 @api_view(['PUT'])
 @api_exception_handler
 def update_external_project_details(request, project_request_id):
-    """Update details for an external project"""
-    logger.debug(f"Looking for project request with ID: {project_request_id}")
-    
-    try:
-        project_request = ExternalProjectRequest.objects.get(ext_project_request_id=project_request_id)
-        logger.debug(f"Found project request: {project_request.ext_project_name}")
-    except ExternalProjectRequest.DoesNotExist:
-        logger.debug(f"Project request with ID {project_request_id} not found")
-        return Response(
-            {'error': f'Project request with ID {project_request_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    try:
-        project_details = ExternalProjectDetails.objects.filter(ext_project_request_id=project_request_id).first()
-        if project_details:
-            logger.debug(f"Found project details with ID: {project_details.project_id}")
-        else:
-            logger.debug(f"No project details found for request ID: {project_request_id}")
-            new_project_id = generate_id('EPD')
-            logger.debug(f"Creating new project details with ID: {new_project_id}")
-            project_details = ExternalProjectDetails(
-                project_id=new_project_id,
-                ext_project_request_id=project_request_id,
-                project_status='Pending'
-            )
-    except Exception as e:
-        logger.exception(f"Error finding/creating project details: {str(e)}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    try:
-        if 'project_status' in request.data:
-            logger.debug(f"Updating project status to: {request.data['project_status']}")
-            project_details.project_status = request.data['project_status']
-            project_details.save()
-    except Exception as e:
-        logger.exception(f"Error updating project status: {str(e)}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    return Response({
-        'project_id': project_details.project_id,
-        'ext_project_request_id': project_request_id,
-        'project_status': project_details.project_status
-    })
-
+    return UpdateExternalProjectDetailsView().put(request, project_request_id)
 
 @api_view(['POST'])
 @api_exception_handler
 def add_external_project_cost_management(request):
-    """Add cost management information to an external project"""
-    logger.debug(f"Received cost management data: {request.data}")
-    
-    # Get the required data
-    project_id = request.data.get('ProjectID')
-    bom_id = request.data.get('BomID')
-    budget_approvals_id = request.data.get('ProjectBudgetApproval')
-    
-    # Validate required fields
-    if not project_id:
-        return Response({'error': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Check if the project exists
-    if not validate_project_exists(project_id):
-        return Response(
-            {'error': f'Project with ID {project_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    # Generate a unique ID for the resource
-    resource_id = generate_id('RES')
-    
-    # Create response data
-    response_data = {
-        'message': 'Cost management record created',
-        'project_id': project_id,
-        'bom_id': bom_id or 'Not specified',
-        'budget_approvals_id': budget_approvals_id or 'Not specified',
-        'project_resources_id': resource_id
-    }
-    
-    # Try to insert the record using the most likely table structure
-    try:
-        execute_query(
-            """
-            INSERT INTO project_management.project_costs
-            (project_id, bom_id, budget_approvals_id)
-            VALUES (%s, %s, %s)
-            """,
-            [project_id, bom_id, budget_approvals_id]
-        )
-        logger.debug("Successfully saved cost management record")
-    except Exception as e:
-        logger.warning(f"Could not save cost management record: {str(e)}")
-        response_data['warning'] = "Record may not have been saved to database"
-    
-    return Response(response_data, status=status.HTTP_201_CREATED)
-
+    return ExternalProjectCostManagementView().post(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_external_project_requests_list(request):
-    """Get a list of all external project requests"""
-    cache_key = "external_project_requests_list"
-    cached_results = cache.get(cache_key)
-    
-    if cached_results:
-        return Response(cached_results)
-    
-    try:
-        results = execute_query("""
-            SELECT 
-                epr.ext_project_request_id AS project_request_id,
-                epr.ext_project_name AS project_name,
-                epr.approval_id,
-                epr.item_id,
-                epd.start_date,
-                epd.project_status
-            FROM 
-                project_management.external_project_request epr
-            LEFT JOIN 
-                project_management.external_project_details epd 
-                ON epr.ext_project_request_id = epd.ext_project_request_id
-            ORDER BY
-                epr.ext_project_request_id DESC
-        """, fetchall=True)
-        
-        cache.set(cache_key, results, 60)  # Cache for 1 minute
-        return Response(results)
-    except Exception as e:
-        logger.warning(f"Error getting external project requests with join: {str(e)}")
-        # Fallback to a simpler query if the join fails
-        results = execute_query("""
-            SELECT 
-                ext_project_request_id AS project_request_id,
-                ext_project_name AS project_name,
-                approval_id,
-                item_id
-            FROM 
-                project_management.external_project_request
-            ORDER BY
-                ext_project_request_id DESC
-        """, fetchall=True)
-        
-        # Add empty values for missing columns
-        for result in results:
-            result['start_date'] = None
-            result['project_status'] = None
-        
-        cache.set(cache_key, results, 60)  # Cache for 1 minute
-        return Response(results)
+    return ExternalProjectRequestsListView().get(request)
 
-
-# ======================= INTERNAL PROJECT ENDPOINTS =======================
-
+# Internal Project Views
 @api_view(['POST'])
 @api_exception_handler
 def create_internal_project(request):
-    """Create a new internal project"""
-    logger.debug(f"Received data: {request.data}")
-    
-    # Get required fields from the request
-    project_name = request.data.get('ProjectNameint')
-    request_date = request.data.get('RequestDateint')
-    starting_date = request.data.get('Startingdateint')
-    employee_id = request.data.get('EmployeeIDint')
-    department_id = request.data.get('DepartmentIDint')
-    reason_for_request = request.data.get('ReasonForRequestint')
-    materials_needed = request.data.get('MaterialsNeededint')
-    equipment_needed = request.data.get('EquipmentNeededint')
-    project_type = request.data.get('ProjectTypeint')
-    
-    # Validate required fields
-    if not project_name:
-        return Response({'error': 'Project name is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not request_date:
-        return Response({'error': 'Request date is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Verify employee exists if employee_id is provided
-    if employee_id and not validate_employee_exists(employee_id):
-        return Response(
-            {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    # Valid project types based on the database enum
-    valid_project_types = ["Training Program", "Department Event", "Facility Maintenance"]
-    
-    # Check if provided project_type is valid
-    if project_type and project_type not in valid_project_types:
-        return Response({
-            'error': f'Invalid project type: {project_type}. Valid types are: {valid_project_types}'
-        }, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Generate a unique ID for the project request
-    project_request_id = generate_id('IPR')
-    
-    # Insert the project request
-    execute_query(
-        """
-        INSERT INTO project_management.internal_project_request
-        (project_request_id, project_name, request_date, employee_id, dept_id, 
-        reason_for_request, materials_needed, equipments_needed, project_type, is_archived)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        [
-            project_request_id, 
-            project_name,
-            request_date,
-            employee_id,
-            department_id,
-            reason_for_request,
-            materials_needed,
-            equipment_needed,
-            project_type,
-            False
-        ]
-    )
-    
-    logger.debug(f"Created internal project request with ID: {project_request_id}")
-    
-    # If we have starting_date, create a project details record
-    if starting_date:
-        try:
-            details_id = generate_id('IPD')
-            execute_query(
-                """
-                INSERT INTO project_management.internal_project_details
-                (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
-                VALUES (%s, %s, %s, %s)
-                """,
-                [details_id, project_request_id, 'not started', starting_date]
-            )
-            logger.debug(f"Created internal project details with ID: {details_id}")
-        except Exception as e:
-            logger.warning(f"Error creating project details: {str(e)}")
-            # Continue anyway - this is not critical
-    
-    # Return success response
-    return Response({
-        'project_request_id': project_request_id,
-        'project_name': project_name,
-        'message': 'Internal project request created successfully'
-    }, status=status.HTTP_201_CREATED)
-
+    return InternalProjectView().post(request)
 
 @api_view(['PUT'])
 @api_exception_handler
 def update_internal_project_details(request, project_request_id):
-    """Update details for an internal project"""
-    logger.debug(f"Updating internal project details for request ID: {project_request_id}")
-    logger.debug(f"Received data: {request.data}")
-    
-    # Find the project request first
-    project_request = execute_query(
-        """
-        SELECT project_request_id, project_name 
-        FROM project_management.internal_project_request
-        WHERE project_request_id = %s
-        """,
-        [project_request_id],
-        fetchone=True
-    )
-    
-    if not project_request:
-        return Response(
-            {'error': f'Project request with ID {project_request_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    logger.debug(f"Found project request: {project_request[1]}")
-    
-    # Check if project details exist for this request
-    project_details = execute_query(
-        """
-        SELECT intrnl_project_id
-        FROM project_management.internal_project_details
-        WHERE project_request_id = %s
-        """,
-        [project_request_id],
-        fetchone=True
-    )
-    
-    project_details_exist = bool(project_details)
-    project_id = project_details[0] if project_details_exist else None
-    
-    if project_details_exist:
-        logger.debug(f"Found existing project details with ID: {project_id}")
-    
-    # Update or create project details
-    new_status = request.data.get('intrnl_project_status')
-    new_approval_id = request.data.get('approval_id')
-    
-    if project_details_exist:
-        # Update existing record
-        update_fields = []
-        update_values = []
-        
-        if new_status:
-            update_fields.append("intrnl_project_status = %s")
-            update_values.append(new_status)
-        
-        if new_approval_id:
-            update_fields.append("approval_id = %s")
-            update_values.append(new_approval_id)
-        
-        if update_fields:
-            execute_query(
-                f"""
-                UPDATE project_management.internal_project_details
-                SET {', '.join(update_fields)}
-                WHERE project_request_id = %s
-                """,
-                update_values + [project_request_id]
-            )
-            logger.debug(f"Updated project details for request ID: {project_request_id}")
-    else:
-        # Create new record
-        new_project_id = generate_id('IPD')
-        project_id = new_project_id
-        
-        if not new_status:
-            new_status = 'not started'
-        
-        execute_query(
-            """
-            INSERT INTO project_management.internal_project_details
-            (intrnl_project_id, project_request_id, intrnl_project_status, approval_id)
-            VALUES (%s, %s, %s, %s)
-            """,
-            [new_project_id, project_request_id, new_status, new_approval_id]
-        )
-        logger.debug(f"Created new project details with ID: {new_project_id}")
-    
-    # Update project description if provided
-    if 'project_description' in request.data and request.data['project_description']:
-        execute_query(
-            """
-            UPDATE project_management.internal_project_request
-            SET reason_for_request = %s
-            WHERE project_request_id = %s
-            """,
-            [request.data['project_description'], project_request_id]
-        )
-        logger.debug(f"Updated project description for request ID: {project_request_id}")
-    
-    # Return success response
-    return Response({
-        'intrnl_project_id': project_id,
-        'project_request_id': project_request_id,
-        'intrnl_project_status': new_status,
-        'approval_id': new_approval_id,
-        'message': 'Project details updated successfully'
-    })
-
+    return UpdateInternalProjectDetailsView().put(request, project_request_id)
 
 @api_view(['POST'])
 @api_exception_handler
 def add_internal_project_labor(request):
-    """Add labor to an internal project"""
-    logger.debug(f"Adding internal project labor with data: {request.data}")
-    
-    project_id = request.data.get('Projectidint')
-    job_role = request.data.get('Jobroleint')
-    employee_id = request.data.get('EmployeeIDint')
-    
-    if not project_id:
-        return Response({'error': 'Project ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not job_role:
-        return Response({'error': 'Job role is required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    # Verify project exists
-    if not validate_project_exists(project_id, is_internal=True):
-        return Response(
-            {'error': f'Project with ID {project_id} not found'}, 
-            status=status.HTTP_404_NOT_FOUND
-        )
-    
-    # Verify employee exists if employee_id is provided
-    if employee_id and not validate_employee_exists(employee_id):
-        return Response(
-            {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    labor_id = generate_id('LAB')
-    
-    execute_query(
-        """
-        INSERT INTO project_management.project_labor
-        (project_labor_id, intrnl_project_id, job_role_needed, employee_id)
-        VALUES (%s, %s, %s, %s)
-        """,
-        [labor_id, project_id, job_role, employee_id]
-    )
-    
-    logger.debug(f"Inserted internal project labor with ID: {labor_id}")
-    
-    return Response({
-        'project_labor_id': labor_id,
-        'intrnl_project_id': project_id,
-        'job_role_needed': job_role,
-        'employee_id': employee_id,
-        'message': 'Internal project labor added successfully'
-    }, status=status.HTTP_201_CREATED)
-
+    return InternalProjectLaborView().post(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_internal_project_requests_list(request):
-    """Get a list of all internal project requests"""
-    cache_key = "internal_project_requests_list"
-    cached_results = cache.get(cache_key)
-    
-    if cached_results:
-        return Response(cached_results)
-    
-    try:
-        # Get valid enum values for project status
-        enum_values = execute_query(
-            "SELECT enum_range(NULL::intrnl_project_status)",
-            fetchone=True
-        )
-        
-        if enum_values and enum_values[0]:
-            enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
-            enum_values = [val.strip('"') for val in enum_values]
-            default_status = enum_values[0] if enum_values else 'not started'
-        else:
-            default_status = 'not started'
-        
-        logger.debug(f"Valid project status values: {enum_values}")
-        
-        # Get the project requests with details
-        results = execute_query(f"""
-            SELECT 
-                ipr.project_request_id,
-                ipr.project_name,
-                COALESCE(ipd.approval_id, 'N/A') AS approval_id,
-                ipr.request_date,
-                CONCAT(e.first_name, ' ', e.last_name) AS employee_name,
-                d.dept_name,
-                COALESCE(ipd.intrnl_project_status, '{default_status}') AS project_status
-            FROM 
-                project_management.internal_project_request ipr
-            LEFT JOIN 
-                project_management.internal_project_details ipd 
-                ON ipr.project_request_id = ipd.project_request_id
-            LEFT JOIN 
-                human_resources.employees e 
-                ON ipr.employee_id = e.employee_id
-            LEFT JOIN 
-                human_resources.departments d 
-                ON ipr.dept_id = d.dept_id
-            ORDER BY
-                ipr.request_date DESC
-        """, fetchall=True)
-        
-        # Process results for display
-        for result in results:
-            if not result.get('employee_name'):
-                result['employee_name'] = 'Unknown'
-            
-            if not result.get('dept_name'):
-                result['dept_name'] = 'Unknown'
-            
-            # Ensure approval_id is not None
-            if result.get('approval_id') is None:
-                result['approval_id'] = 'N/A'
-            
-            # Format the project status for display
-            status = result.get('project_status', default_status)
-            result['project_status'] = status.replace('_', ' ').title()
-            
-            # Rename fields to match frontend expectations
-            result['employee'] = result.pop('employee_name')
-            result['department'] = result.pop('dept_name')
-        
-        cache.set(cache_key, results, 60)  # Cache for 1 minute
-        return Response(results)
-    except Exception as e:
-        logger.warning(f"Error getting internal project requests with join: {str(e)}")
-        # Fallback to a more basic query if the complex one fails
-        basic_results = execute_query("""
-            SELECT 
-                project_request_id,
-                project_name,
-                request_date,
-                employee_id,
-                dept_id
-            FROM 
-                project_management.internal_project_request
-            ORDER BY
-                request_date DESC
-        """, fetchall=True)
-        
-        # Process each result to add missing information
-        for result in basic_results:
-            result['approval_id'] = 'N/A'
-            result['employee'] = result.get('employee_id', 'Unknown')
-            result['department'] = result.get('dept_id', 'Unknown')
-            result['project_status'] = 'Not Started'
-            
-            # Remove the ID fields that we replaced with names
-            if 'employee_id' in result:
-                del result['employee_id']
-            if 'dept_id' in result:
-                del result['dept_id']
-        
-        cache.set(cache_key, basic_results, 60)  # Cache for 1 minute
-        return Response(basic_results)
+    return InternalProjectRequestsListView().get(request)
 
-
-# ======================= UTILITY ENDPOINTS =======================
-
+# Utility Views
 @api_view(['GET'])
 @api_exception_handler
 def get_external_approval_ids(request):
-    """Get a list of all external approval IDs"""
-    cache_key = "external_approval_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    approval_ids = execute_query("""
-        SELECT DISTINCT approval_id 
-        FROM project_management.external_project_request
-        WHERE approval_id IS NOT NULL
-    """, fetchall=True)
-    
-    result = [row['approval_id'] for row in approval_ids]
-    cache.set(cache_key, result, 300)  # Cache for 5 minutes
-    return Response(result)
-
+    return ExternalApprovalIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_internal_approval_ids(request):
-    """Get a list of all internal approval IDs"""
-    cache_key = "internal_approval_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    approval_ids = []
-    
-    # Get from internal project details
-    internal_ids = execute_query("""
-        SELECT DISTINCT approval_id 
-        FROM project_management.internal_project_details
-        WHERE approval_id IS NOT NULL
-    """, fetchall=True)
-    
-    approval_ids.extend([row['approval_id'] for row in internal_ids])
-    
-    # Try to get from management approvals table
-    try:
-        management_ids = execute_query("""
-            SELECT DISTINCT approval_id 
-            FROM management.management_approvals
-            WHERE approval_id IS NOT NULL
-        """, fetchall=True)
-        
-        approval_ids.extend([row['approval_id'] for row in management_ids])
-    except Exception as e:
-        logger.warning(f"Could not query management.management_approvals: {str(e)}")
-    
-    # Remove duplicates and sort
-    result = sorted(list(set(approval_ids)))
-    cache.set(cache_key, result, 300)  # Cache for 5 minutes
-    return Response(result)
-
+    return InternalApprovalIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_approval_ids(request):
-    """Get a list of all approval IDs (for backwards compatibility)"""
-    return get_external_approval_ids(request)
-
+    return ExternalApprovalIdsView().get(request)  # For backwards compatibility
 
 @api_view(['GET'])
 @api_exception_handler
 def get_order_ids(request):
-    """Get a list of all order IDs"""
-    cache_key = "order_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    order_ids = list(ExternalProjectRequest.objects.values_list('item_id', flat=True).distinct())
-    order_ids = [id for id in order_ids if id]
-    
-    cache.set(cache_key, order_ids, 300)  # Cache for 5 minutes
-    return Response(order_ids)
-
+    return OrderIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_external_project_request_ids(request):
-    """Get a list of all external project request IDs"""
-    cache_key = "external_project_request_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(ExternalProjectRequest.objects.values_list('ext_project_request_id', flat=True))
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return ExternalProjectRequestIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_external_project_ids(request):
-    """Get a list of all external project IDs"""
-    cache_key = "external_project_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(ExternalProjectDetails.objects.values_list('project_id', flat=True))
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return ExternalProjectIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_employee_ids(request):
-    """Get a list of all employee IDs and names"""
-    cache_key = "employee_ids"
-    cached_employees = cache.get(cache_key)
-    
-    if cached_employees:
-        return Response(cached_employees)
-    
-    try:
-        # Try to query the employees table
-        employees = execute_query("""
-            SELECT employee_id, first_name, last_name 
-            FROM human_resources.employees 
-            WHERE employee_id IS NOT NULL
-        """, fetchall=True)
-        
-        if employees:
-            result = [{
-                "id": emp['employee_id'], 
-                "name": f"{emp['first_name']} {emp['last_name']}"
-            } for emp in employees]
-            cache.set(cache_key, result, 300)  # Cache for 5 minutes
-            return Response(result)
-        
-        # If the first query fails, try an alternative approach
-        employees = execute_query("""
-            SELECT DISTINCT pl.employee_id, e.first_name, e.last_name
-            FROM project_management.project_labor pl
-            JOIN human_resources.employees e ON pl.employee_id = e.employee_id
-            WHERE pl.employee_id IS NOT NULL
-        """, fetchall=True)
-        
-        if employees:
-            result = [{
-                "id": emp['employee_id'], 
-                "name": f"{emp['first_name']} {emp['last_name']}"
-            } for emp in employees]
-            cache.set(cache_key, result, 300)  # Cache for 5 minutes
-            return Response(result)
-    except Exception as e:
-        logger.warning(f"Could not query employees: {str(e)}")
-    
-    # Return sample data as a fallback
-    sample_data = [
-        {"id": "EMP-001", "name": "John Doe"},
-        {"id": "EMP-002", "name": "Jane Smith"},
-        {"id": "EMP-003", "name": "Michael Johnson"}
-    ]
-    return Response(sample_data)
-
+    return EmployeeIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_equipment_ids(request):
-    """Get a list of all equipment IDs"""
-    cache_key = "equipment_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(ExternalProjectEquipments.objects.values_list('project_equipment_id', flat=True).distinct())
-    ids = [id for id in ids if id]
-    
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return EquipmentIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_internal_project_request_ids(request):
-    """Get a list of all internal project request IDs"""
-    cache_key = "internal_project_request_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(InternalProjectRequest.objects.values_list('project_request_id', flat=True))
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return InternalProjectRequestIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_internal_project_ids(request):
-    """Get a list of all internal project IDs"""
-    cache_key = "internal_project_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(InternalProjectDetails.objects.values_list('intrnl_project_id', flat=True))
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return InternalProjectIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_department_ids(request):
-    """Get a list of all department IDs"""
-    cache_key = "department_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    ids = list(InternalProjectRequest.objects.values_list('dept_id', flat=True).distinct())
-    ids = [id for id in ids if id]
-    
-    cache.set(cache_key, ids, 300)  # Cache for 5 minutes
-    return Response(ids)
-
+    return DepartmentIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_project_status_values(request):
-    """Get a list of all possible project status values"""
-    cache_key = "project_status_values"
-    cached_values = cache.get(cache_key)
-    
-    if cached_values:
-        return Response(cached_values)
-    
-    try:
-        enum_values = execute_query("SELECT enum_range(NULL::project_status)", fetchone=True)
-        if enum_values and enum_values[0]:
-            enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
-            enum_values = [val.strip('"') for val in enum_values]
-            cache.set(cache_key, enum_values, 3600)  # Cache for 1 hour
-            return Response(enum_values)
-    except Exception:
-        pass
-    
-    # Fallback to default values
-    default_values = ['not started', 'in progress', 'completed']
-    cache.set(cache_key, default_values, 3600)  # Cache for 1 hour
-    return Response(default_values)
-
+    return ProjectStatusValuesView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_internal_project_status_values(request):
-    """Get a list of all possible internal project status values"""
-    cache_key = "internal_project_status_values"
-    cached_values = cache.get(cache_key)
-    
-    if cached_values:
-        return Response(cached_values)
-    
-    try:
-        enum_values = execute_query("SELECT enum_range(NULL::intrnl_project_status)", fetchone=True)
-        if enum_values and enum_values[0]:
-            enum_values = enum_values[0].replace('{', '').replace('}', '').split(',')
-            enum_values = [val.strip('"') for val in enum_values]
-            cache.set(cache_key, enum_values, 3600)  # Cache for 1 hour
-            return Response(enum_values)
-    except Exception:
-        pass
-    
-    # Fallback to default values
-    default_values = ['not started', 'in progress', 'completed']
-    cache.set(cache_key, default_values, 3600)  # Cache for 1 hour
-    return Response(default_values)
-
+    return InternalProjectStatusValuesView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_bom_ids_from_cost_management(request):
-    """Get a list of all BOM IDs from cost management"""
-    cache_key = "bom_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    bom_ids = execute_query("""
-        SELECT DISTINCT bom_id
-        FROM project_management.project_costs
-        WHERE bom_id IS NOT NULL
-    """, fetchall=True)
-    
-    result = [row['bom_id'] for row in bom_ids]
-    cache.set(cache_key, result, 300)  # Cache for 5 minutes
-    return Response(result)
-
+    return BomIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def get_budget_approval_ids_from_cost_management(request):
-    """Get a list of all budget approval IDs from cost management"""
-    cache_key = "budget_approval_ids"
-    cached_ids = cache.get(cache_key)
-    
-    if cached_ids:
-        return Response(cached_ids)
-    
-    budget_ids = execute_query("""
-        SELECT DISTINCT budget_approvals_id
-        FROM project_management.project_costs
-        WHERE budget_approvals_id IS NOT NULL
-    """, fetchall=True)
-    
-    result = [row['budget_approvals_id'] for row in budget_ids]
-    cache.set(cache_key, result, 300)  # Cache for 5 minutes
-    return Response(result)
-
-
-# ======================= DEVELOPMENT AND TESTING ENDPOINTS =======================
-
-@api_view(['POST'])
-@api_exception_handler
-def seed_test_employees(request):
-    """Create test employees for development purposes"""
-    try:
-        # Create sample employees
-        employees = [
-            ('EMP-001', 'John', 'Doe', 'IT'),
-            ('EMP-002', 'Jane', 'Smith', 'HR'),
-            ('EMP-003', 'Michael', 'Johnson', 'Finance')
-        ]
-        
-        created_count = 0
-        for emp_id, first_name, last_name, dept in employees:
-            # Check if employee already exists
-            employee_exists = execute_query(
-                "SELECT COUNT(*) FROM human_resources.employees WHERE employee_id = %s",
-                [emp_id],
-                fetchone=True
-            )
-            
-            if not employee_exists or employee_exists[0] == 0:
-                try:
-                    execute_query(
-                        """
-                        INSERT INTO human_resources.employees
-                        (employee_id, first_name, last_name, department)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        [emp_id, first_name, last_name, dept]
-                    )
-                    created_count += 1
-                except Exception as e:
-                    logger.warning(f"Could not create employee {emp_id}: {str(e)}")
-        
-        return Response({
-            'message': f'Created {created_count} test employees successfully',
-            'employees': [{'id': emp[0], 'name': f"{emp[1]} {emp[2]}"} for emp in employees]
-        }, status=status.HTTP_201_CREATED)
-    except Exception as e:
-        logger.exception(f"Error creating test employees: {str(e)}")
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-@api_view(['GET'])
-@api_exception_handler
-def verify_database_setup(request):
-    """Verify that the database is properly set up"""
-    issues = []
-    
-    # Check if employees table exists
-    try:
-        employee_count = execute_query(
-            "SELECT COUNT(*) FROM human_resources.employees",
-            fetchone=True
-        )
-        if employee_count and employee_count[0] == 0:
-            issues.append("The employees table exists but has no records")
-    except Exception as e:
-        issues.append(f"Could not query employees table: {str(e)}")
-    
-    # Check other important tables
-    tables_to_check = [
-        "project_management.external_project_request",
-        "project_management.external_project_details",
-        "project_management.internal_project_request",
-        "project_management.internal_project_details",
-        "project_management.project_labor"
-    ]
-    
-    for table in tables_to_check:
-        try:
-            execute_query(f"SELECT COUNT(*) FROM {table}", fetchone=True)
-        except Exception as e:
-            issues.append(f"Could not query {table}: {str(e)}")
-    
-    if issues:
-        return Response({
-            'status': 'issues_detected',
-            'issues': issues
-        })
-    
-    return Response({
-        'status': 'ok',
-        'message': 'Database setup appears to be correct'
-    })
-
+    return BudgetApprovalIdsView().get(request)
 
 @api_view(['GET'])
 @api_exception_handler
 def clear_cache(request):
-    """Clear the application cache"""
-    cache.clear()
-    return Response({'message': 'Cache cleared successfully'})
+    return ClearCacheView().get(request)

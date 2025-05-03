@@ -226,12 +226,6 @@ const BodyContent = () => {
         setShowDetailsModal(true);
     };
 
-    const handleEmployeeClick = (employee) => {
-        setSelectedEmployee(employee);
-        fetchEmployeeDetails(employee.EmployeeID);
-        setShowEmployeeModal(true);
-    };
-
     const closeDetailsModal = () => {
         setShowDetailsModal(false);
         setProjectDetail(null);
@@ -305,6 +299,58 @@ const BodyContent = () => {
         return deadline;
     };
     
+    // Updated Employee Display Component
+   // Updated Employee Display Component
+const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
+    const [expanded, setExpanded] = useState(expandedByDefault);
+    
+    if (!employee || !employee.EmployeeID) {
+        return <span>Unassigned</span>;
+    }
+    
+    const openEmployeeModal = (e) => {
+        e.stopPropagation();
+        setSelectedEmployee(employee);
+        fetchEmployeeDetails(employee.EmployeeID);
+        setShowEmployeeModal(true);
+    };
+    
+    return (
+        <div className="employee-display">
+            {!expanded ? (
+                <div className="employee-compact" onClick={() => setExpanded(true)}>
+                    <div className="employee-avatar">
+                        {getInitials(employee.EmployeeName)}
+                    </div>
+                </div>
+            ) : (
+                <div className="employee-expanded">
+                    <div className="employee-compact">
+                        <div 
+                            className="employee-avatar"
+                            onClick={openEmployeeModal}
+                        >
+                            {getInitials(employee.EmployeeName)}
+                        </div>
+                        <div className="employee-info">
+                            <div className="employee-name">{employee.EmployeeName}</div>
+                            <div className="employee-id">ID: {employee.EmployeeID}</div>
+                        </div>
+                    </div>
+                    <button 
+                        className="employee-toggle" 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setExpanded(false);
+                        }}
+                    >
+                        Hide details
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+};
     // Chart data for Overall Progress
     const progressChartData = {
         datasets: [{
@@ -599,19 +645,12 @@ const BodyContent = () => {
                                                 <td>{item.Task}</td>
                                                 <td>{item.Deadline}</td>
                                                 <td>
-                                                    {item.EmployeeID ? (
-                                                        <div 
-                                                            className="employee-avatar"
-                                                            onClick={() => handleEmployeeClick({
-                                                                EmployeeID: item.EmployeeID,
-                                                                EmployeeName: item.Employee
-                                                            })}
-                                                        >
-                                                            {getInitials(item.Employee)}
-                                                        </div>
-                                                    ) : (
-                                                        item.Employee
-                                                    )}
+                                                    <EmployeeDisplay 
+                                                        employee={{
+                                                            EmployeeID: item.EmployeeID,
+                                                            EmployeeName: item.Employee
+                                                        }} 
+                                                    />
                                                 </td>
                                             </tr>
                                         ))
@@ -637,7 +676,7 @@ const BodyContent = () => {
                                         <th>Status</th>
                                         <th>Task</th>
                                         <th>Deadline</th>
-                                        <th>Employee</th>
+                                        <th>Assigned To</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -649,36 +688,44 @@ const BodyContent = () => {
                                         <tr><td colSpan="4" className="no-data-cell">No tasks due today</td></tr>
                                     ) : (
                                         paginatedTodayTasks.map((task, index) => (
-                                            <tr key={index}>
-                                                <td className="task-status">
-                                                    <span 
-                                                        className={`status-badge ${task.Status === 'completed' ? 'ok' : 'pending'}`}
-                                                        onClick={() => handleTaskStatusChange(
-                                                            task.TaskID, 
-                                                            task.Status === 'completed' ? 'in progress' : 'completed'
-                                                        )}
-                                                    >
-                                                        {task.Status === 'completed' ? 'Completed' : 'Pending'}
-                                                    </span>
-                                                </td>
-                                                <td>{task.Task}</td>
-                                                <td>{formatDeadline(task.Deadline)}</td>
-                                                <td>
-                                                    {task.EmployeeID ? (
-                                                        <div 
-                                                            className="employee-avatar"
-                                                            onClick={() => handleEmployeeClick({
-                                                                EmployeeID: task.EmployeeID,
-                                                                EmployeeName: task.EmployeeName
-                                                            })}
-                                                        >
-                                                            {getInitials(task.EmployeeName)}
-                                                        </div>
-                                                    ) : (
-                                                        'Unassigned'
-                                                    )}
-                                                </td>
-                                            </tr>
+                                           <tr key={index}>
+  <td className="task-status">
+    <span 
+      className={`status-badge ${task.Status === 'completed' ? 'ok' : 'pending'}`}
+      onClick={() => handleTaskStatusChange(
+        task.TaskID, 
+        task.Status === 'completed' ? 'in progress' : 'completed'
+      )}
+    >
+      {task.Status === 'completed' ? 'Completed' : 'Pending'}
+    </span>
+  </td>
+  <td>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span>{task.Task}</span>
+      <small style={{ color: 'var(--light-text)' }}>
+        {task.ProjectName}
+      </small>
+    </div>
+  </td>
+  <td>
+    <span className={`priority-indicator ${
+      new Date(task.Deadline) < new Date() ? 'priority-high' : 
+      new Date(task.Deadline).toDateString() === new Date().toDateString() ? 'priority-medium' : 
+      'priority-low'
+    }`}>
+      {formatDeadline(task.Deadline)}
+    </span>
+  </td>
+  <td>
+    <EmployeeDisplay 
+      employee={{
+        EmployeeID: task.EmployeeID,
+        EmployeeName: task.EmployeeName
+      }} 
+    />
+  </td>
+</tr>
                                         ))
                                     )}
                                 </tbody>

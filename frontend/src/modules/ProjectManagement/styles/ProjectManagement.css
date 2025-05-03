@@ -1182,3 +1182,107 @@
 .status-badge.ok:hover, .status-badge.completed:hover {
   background-color: rgba(46, 204, 113, 0.2);
 }
+/* Enhanced Employee Avatar */
+.employee-display {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.employee-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+
+.employee-avatar:hover {
+  background-color: var(--primary-hover);
+  transform: scale(1.05);
+}
+
+/* Employee Info Tooltip */
+.employee-tooltip {
+  position: absolute;
+  left: 0;
+  top: 45px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  width: 220px;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+.employee-display:hover .employee-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.employee-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.employee-id {
+  font-size: 12px;
+  color: #666;
+}
+
+.employee-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.employee-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.employee-avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.employee-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.employee-name {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.employee-id {
+  font-size: 0.75rem;
+  color: var(--light-text);
+}
