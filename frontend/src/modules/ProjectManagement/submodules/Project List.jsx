@@ -923,7 +923,7 @@ const ProjectList = () => {
                   >
                     External Requests
                   </button>
-                  <div className="status-indicators">
+                  <div className="status-indicators-projectlist">
                 <span className="status-indicator approved">
                   <div className="status-dot"></div>
                   <span>Approved</span>

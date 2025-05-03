@@ -22,7 +22,7 @@
   --box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   --box-shadow-hover: 0 15px 30px rgba(0, 0, 0, 0.08);
   --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  --font-primary: 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', sans-serif;
+  --font-primary: 'Inter', sans-serif;
 }
 
 * {
@@ -320,7 +320,7 @@ body {
   position: sticky;
   top: 0;
   text-transform: uppercase;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.5px;
 }
 

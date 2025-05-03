@@ -72,6 +72,26 @@ const BodyContent = () => {
         projectSummary: null,
         dashboardStats: null
     });
+    
+    // Reminder states
+    const [activeTab, setActiveTab] = useState('Notes');
+    const [reminderItems, setReminderItems] = useState([
+        {
+            id: 1,
+            title: 'Project Scheduling',
+            description: 'Plan tasks and track deadlines. Also, assign responsibilities, and monitor.',
+            completed: false,
+        },
+        {
+            id: 2,
+            title: 'Project Scheduling',
+            description: 'Plan tasks and track deadlines. Also, assign responsibilities, and monitor.',
+            completed: true,
+        }
+    ]);
+    const [showForm, setShowForm] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDescription, setNewDescription] = useState('');
   
     // Fetch data on component mount
     useEffect(() => {
@@ -300,57 +320,57 @@ const BodyContent = () => {
     };
     
     // Updated Employee Display Component
-   // Updated Employee Display Component
-const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
-    const [expanded, setExpanded] = useState(expandedByDefault);
-    
-    if (!employee || !employee.EmployeeID) {
-        return <span>Unassigned</span>;
-    }
-    
-    const openEmployeeModal = (e) => {
-        e.stopPropagation();
-        setSelectedEmployee(employee);
-        fetchEmployeeDetails(employee.EmployeeID);
-        setShowEmployeeModal(true);
-    };
-    
-    return (
-        <div className="employee-display">
-            {!expanded ? (
-                <div className="employee-compact" onClick={() => setExpanded(true)}>
-                    <div className="employee-avatar">
-                        {getInitials(employee.EmployeeName)}
-                    </div>
-                </div>
-            ) : (
-                <div className="employee-expanded">
-                    <div className="employee-compact">
-                        <div 
-                            className="employee-avatar"
-                            onClick={openEmployeeModal}
-                        >
+    const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
+        const [expanded, setExpanded] = useState(expandedByDefault);
+        
+        if (!employee || !employee.EmployeeID) {
+            return <span>Unassigned</span>;
+        }
+        
+        const openEmployeeModal = (e) => {
+            e.stopPropagation();
+            setSelectedEmployee(employee);
+            fetchEmployeeDetails(employee.EmployeeID);
+            setShowEmployeeModal(true);
+        };
+        
+        return (
+            <div className="employee-display">
+                {!expanded ? (
+                    <div className="employee-compact" onClick={() => setExpanded(true)}>
+                        <div className="employee-avatar">
                             {getInitials(employee.EmployeeName)}
                         </div>
-                        <div className="employee-info">
-                            <div className="employee-name">{employee.EmployeeName}</div>
-                            <div className="employee-id">ID: {employee.EmployeeID}</div>
-                        </div>
                     </div>
-                    <button 
-                        className="employee-toggle" 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setExpanded(false);
-                        }}
-                    >
-                        Hide details
-                    </button>
-                </div>
-            )}
-        </div>
-    );
-};
+                ) : (
+                    <div className="employee-expanded">
+                        <div className="employee-compact">
+                            <div 
+                                className="employee-avatar"
+                                onClick={openEmployeeModal}
+                            >
+                                {getInitials(employee.EmployeeName)}
+                            </div>
+                            <div className="employee-info">
+                                <div className="employee-name">{employee.EmployeeName}</div>
+                                <div className="employee-id">ID: {employee.EmployeeID}</div>
+                            </div>
+                        </div>
+                        <button 
+                            className="employee-toggle" 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setExpanded(false);
+                            }}
+                        >
+                            Hide details
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     // Chart data for Overall Progress
     const progressChartData = {
         datasets: [{
@@ -478,6 +498,7 @@ const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
     // Render pagination controls
     const renderPagination = (section, currentPage, totalPages) => {
         if (totalPages <= 1) return null;
+
         
         return (
             <div className="pagination-controls">
@@ -500,6 +521,35 @@ const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
                 </button>
             </div>
         );
+    };
+
+    // Reminder form handlers
+    const handleAddClick = () => {
+        setShowForm(true);
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        
+        if (newTitle.trim() !== '') {
+            const newItem = {
+                id: Date.now(),
+                title: newTitle,
+                description: newDescription,
+                completed: false
+            };
+            
+            setReminderItems([...reminderItems, newItem]);
+            setNewTitle('');
+            setNewDescription('');
+            setShowForm(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setShowForm(false);
+        setNewTitle('');
+        setNewDescription('');
     };
     
     return (
@@ -570,6 +620,7 @@ const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
                                         </div>
                                     </div>
                                 </div>
+                                
                             </div>
                         </div>
 
@@ -602,7 +653,107 @@ const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
                                         </div>
                                     </div>
                                 </div>
+                            </div>                       
+                        </div>
+                    </div>
+
+                    <div className="reminder-card">
+                        <div className="reminder-header">
+                            <h2>Reminder</h2>
+                            <button className="add-button" onClick={handleAddClick}>
+                                <span><b>+</b></span>
+                            </button>
+                        </div>
+                        
+                        <div className="tabs-container">
+                            <div className={`tab ${activeTab === 'Notes' ? 'active' : ''}`} onClick={() => setActiveTab('Notes')}>
+                                <div className="tab-icon">✓</div>
+                                <div className="tab-text"><b>Notes</b></div>
                             </div>
+                        </div>
+                        
+                        {showForm && (
+                            <div className="reminder-form">
+                                <form onSubmit={handleSubmit} className="reminder-form-container">
+                                    <div className="form-header">
+                                        <h3>Add New Reminder</h3>
+                                        <button 
+                                            type="button" 
+                                            className="close-button" 
+                                            onClick={handleCancel}
+                                            aria-label="Close form"
+                                        >
+                                            &times;
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="form-group">
+                                        <label htmlFor="reminder-title">Title</label>
+                                        <input
+                                            id="reminder-title"
+                                            type="text"
+                                            placeholder="Enter reminder title"
+                                            value={newTitle}
+                                            onChange={(e) => setNewTitle(e.target.value)}
+                                            className="form-control"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <div className="form-group">
+                                        <label htmlFor="reminder-description">Description</label>
+                                        <textarea
+                                            id="reminder-description"
+                                            placeholder="Enter reminder details"
+                                            value={newDescription}
+                                            onChange={(e) => setNewDescription(e.target.value)}
+                                            className="form-control"
+                                            rows="4"
+                                            required
+                                        />
+                                    </div>
+                                    
+                                    <div className="form-buttons">
+                                        <button 
+                                            type="button" 
+                                            onClick={handleCancel}
+                                            className="btn btn-secondary"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            type="submit"
+                                            className="btn btn-primary"
+                                        >
+                                            Add Reminder
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        )}
+                        
+                        <div className="reminder-list">
+                            {reminderItems.map(item => (
+                                <div className="reminder-item" key={item.id}>
+                                    <div className="reminder-content">
+                                        <h3><b>{item.title}</b></h3>
+                                        <p>{item.description}</p>
+                                    </div>
+                                    <div className="reminder-actions">
+                                        <div 
+                                            className={`status-indicator-dashboard ${item.completed ? 'completed' : ''}`}
+                                            onClick={() => {
+                                                const updatedItems = reminderItems.map(i => 
+                                                    i.id === item.id ? {...i, completed: !i.completed} : i
+                                                );
+                                                setReminderItems(updatedItems);
+                                            }}
+                                        >
+                                            {item.completed ? '✓' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
 
@@ -688,44 +839,44 @@ const EmployeeDisplay = ({ employee, expandedByDefault = false }) => {
                                         <tr><td colSpan="4" className="no-data-cell">No tasks due today</td></tr>
                                     ) : (
                                         paginatedTodayTasks.map((task, index) => (
-                                           <tr key={index}>
-  <td className="task-status">
-    <span 
-      className={`status-badge ${task.Status === 'completed' ? 'ok' : 'pending'}`}
-      onClick={() => handleTaskStatusChange(
-        task.TaskID, 
-        task.Status === 'completed' ? 'in progress' : 'completed'
-      )}
-    >
-      {task.Status === 'completed' ? 'Completed' : 'Pending'}
-    </span>
-  </td>
-  <td>
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <span>{task.Task}</span>
-      <small style={{ color: 'var(--light-text)' }}>
-        {task.ProjectName}
-      </small>
-    </div>
-  </td>
-  <td>
-    <span className={`priority-indicator ${
-      new Date(task.Deadline) < new Date() ? 'priority-high' : 
-      new Date(task.Deadline).toDateString() === new Date().toDateString() ? 'priority-medium' : 
-      'priority-low'
-    }`}>
-      {formatDeadline(task.Deadline)}
-    </span>
-  </td>
-  <td>
-    <EmployeeDisplay 
-      employee={{
-        EmployeeID: task.EmployeeID,
-        EmployeeName: task.EmployeeName
-      }} 
-    />
-  </td>
-</tr>
+                                            <tr key={index}>
+                                                <td className="task-status">
+                                                    <span 
+                                                        className={`status-badge ${task.Status === 'completed' ? 'ok' : 'pending'}`}
+                                                        onClick={() => handleTaskStatusChange(
+                                                            task.TaskID, 
+                                                            task.Status === 'completed' ? 'in progress' : 'completed'
+                                                        )}
+                                                    >
+                                                        {task.Status === 'completed' ? 'Completed' : 'Pending'}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span>{task.Task}</span>
+                                                        <small style={{ color: 'var(--light-text)' }}>
+                                                            {task.ProjectName}
+                                                        </small>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <span className={`priority-indicator ${
+                                                        new Date(task.Deadline) < new Date() ? 'priority-high' : 
+                                                        new Date(task.Deadline).toDateString() === new Date().toDateString() ? 'priority-medium' : 
+                                                        'priority-low'
+                                                    }`}>
+                                                        {formatDeadline(task.Deadline)}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <EmployeeDisplay 
+                                                        employee={{
+                                                            EmployeeID: task.EmployeeID,
+                                                            EmployeeName: task.EmployeeName
+                                                        }} 
+                                                    />
+                                                </td>
+                                            </tr>
                                         ))
                                     )}
                                 </tbody>
