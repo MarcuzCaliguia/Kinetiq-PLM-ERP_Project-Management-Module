@@ -1,7 +1,7 @@
 {
     "dev": {
         "aws_region": "ap-southeast-1",
-        "app_function": "project_management_backend.wsgi.application",
+        "django_settings": "project_management_backend.settings",
         "exclude": [
             "boto3",
             "dateutil",
@@ -11,10 +11,9 @@
         ],
         "profile_name": "default",
         "project_name": "kinetiq-erp-projman",
-        "runtime": "python3.11",
-        "s3_bucket": "zappa-project-management"
-
-        ,"vpc_config": {
+        "runtime": "python3.12",
+        "s3_bucket": "zappa-project-management",
+        "vpc_config": {
             "SubnetIds": [
             "subnet-0afd6c1a25f45edca",
             "subnet-0f9a284e28b5f2a6a",
@@ -30,7 +29,7 @@
             "DB_PASSWORD": "KntBg3jIY0DbpH8G9bwt",
             "DB_HOST": "kinetiq-postgresql.c30ww0i2ytkm.ap-southeast-1.rds.amazonaws.com",
             "DB_PORT": "5432",
-            "SECRET_KEY": " django-insecure-eylsb0+r0*jaf_jok$yvcejuq5k*tqja!e48)27)px3o%xz9-5 "
+            "SECRET_KEY": "django-insecure-eylsb0+r0*jaf_jok$yvcejuq5k*tqja!e48)27)px3o%xz9-5"
 
           }
     }
