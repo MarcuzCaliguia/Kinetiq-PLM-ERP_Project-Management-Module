@@ -1,4 +1,3 @@
-# models.py updates
 from django.db import models
 
 class ExternalProjectRequest(models.Model):
@@ -15,7 +14,7 @@ class ExternalProjectRequest(models.Model):
 class ExternalProjectDetails(models.Model):
     project_id = models.CharField(primary_key=True, max_length=255)
     ext_project_request = models.ForeignKey('ExternalProjectRequest', models.DO_NOTHING, db_column='ext_project_request_id', blank=True, null=True)
-    project_status = models.TextField()  # This field type is a guess.
+    project_status = models.TextField()  
     project_milestone = models.TextField(blank=True, null=True)
     start_date = models.DateField(blank=True, null=True)
     estimated_end_date = models.DateField(blank=True, null=True)
@@ -43,7 +42,7 @@ class InternalProjectRequest(models.Model):
 class InternalProjectDetails(models.Model):
     intrnl_project_id = models.CharField(primary_key=True, max_length=255)
     project_request = models.ForeignKey('InternalProjectRequest', models.DO_NOTHING, db_column='project_request_id', blank=True, null=True)
-    intrnl_project_status = models.TextField()  # This field type is a guess.
+    intrnl_project_status = models.TextField()  
     approval_id = models.CharField(max_length=255, blank=True, null=True)
     start_date = models.DateField(blank=True, null=True)
     estimated_end_date = models.DateField(blank=True, null=True)
@@ -57,7 +56,7 @@ class Employee(models.Model):
     employee_id = models.CharField(primary_key=True, max_length=255)
     first_name = models.CharField(max_length=255, blank=True, null=True)
     last_name = models.CharField(max_length=255, blank=True, null=True)
-    # Add other fields as needed
+    
 
     class Meta:
         managed = False
@@ -78,7 +77,7 @@ class ProjectTasks(models.Model):
     task_id = models.CharField(primary_key=True, max_length=255)
     project = models.ForeignKey(ExternalProjectDetails, models.DO_NOTHING, db_column='project_id', blank=True, null=True)
     task_description = models.TextField(blank=True, null=True)
-    task_status = models.TextField()  # This field type is a guess.
+    task_status = models.TextField()  
     task_deadline = models.DateField()
     project_labor = models.ForeignKey(ProjectLabor, models.DO_NOTHING, db_column='project_labor_id', blank=True, null=True)
     intrnl_project = models.ForeignKey(InternalProjectDetails, models.DO_NOTHING, db_column='intrnl_project_id', blank=True, null=True)
@@ -87,10 +86,10 @@ class ProjectTasks(models.Model):
         managed = False
         db_table = 'project_management.project_tasks'
 
-# If you need Management Approvals model
+
 class ManagementApproval(models.Model):
     approval_id = models.CharField(primary_key=True, max_length=255)
-    # Add other fields as needed
+    
 
     class Meta:
         managed = False

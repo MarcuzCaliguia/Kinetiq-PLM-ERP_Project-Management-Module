@@ -31,8 +31,9 @@ urlpatterns = [
     path('', health_check),
     
     path('project-tasks/', include('project_tasks.urls')),
-    path('api/warranties/', include('project_warranties.urls')),
     path('api/project-planning/', include('project_planning.urls')),
     path('api/project-management/', include('project_list.urls')),
-    path('api/dashboard/', include('dashboard.urls'))
+    path('api/project-cost/', include('project_cost.urls')),
+    path('api/dashboard/', include('dashboard.urls')),
+    path('api/warranties/', include('project_warranties.urls')),
 ]

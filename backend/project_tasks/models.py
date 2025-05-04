@@ -89,7 +89,7 @@ class ProjectTasks(models.Model):
         managed = False
         db_table = 'project_management.project_tasks'
 
-# Models for the views
+
 class ExternalProjectTasks(models.Model):
     task_id = models.CharField(primary_key=True, max_length=255)
     ext_project_name = models.CharField(max_length=50, blank=True, null=True)

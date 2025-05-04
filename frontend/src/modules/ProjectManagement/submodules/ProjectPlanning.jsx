@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import ProjectGanttChart from "./ProjectGanttChart.jsx";
 import "../styles/ProjectPlanning.css";
+
 // Import icons individually
 import { 
   FaClipboardList, 
@@ -19,7 +21,9 @@ import {
   FaEye, 
   FaCheckCircle, 
   FaExclamationCircle, 
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaTrash,
+  FaPlusCircle
 } from "react-icons/fa";
 
 const ProjectPlanningDashboard = () => {
@@ -27,9 +31,8 @@ const ProjectPlanningDashboard = () => {
   const [activeView, setActiveView] = useState("dashboard");
   const [selectedProjectType, setSelectedProjectType] = useState("external");
   
-  // Removed unused state variables
-  // const [editMode, setEditMode] = useState(false);
-  // const [editId, setEditId] = useState(null);
+  const [showGanttChart, setShowGanttChart] = useState(false);
+
   
   const [message, setMessage] = useState({ text: "", type: "" });
   
@@ -49,6 +52,7 @@ const ProjectPlanningDashboard = () => {
   const [projectIds, setProjectIds] = useState([]);
   const [employeeIds, setEmployeeIds] = useState([]);
   const [equipmentIds, setEquipmentIds] = useState([]);
+  const [equipmentNames, setEquipmentNames] = useState([]); // New state for equipment names
   const [internalProjectRequestIds, setInternalProjectRequestIds] = useState([]);
   const [internalProjectIds, setInternalProjectIds] = useState([]);
   const [departmentIds, setDepartmentIds] = useState([]);
@@ -85,10 +89,10 @@ const ProjectPlanningDashboard = () => {
     employeeId: ""
   });
   
-  // External Project Equipment Form
+  // External Project Equipment Form - Updated to support multiple equipment items
   const [externalProjectEquipmentForm, setExternalProjectEquipmentForm] = useState({
     projectId: "",
-    projectEquipmentId: ""
+    equipmentItems: [{ name: "" }]  // Array of equipment items
   });
   
   // External Project Warranty Form
@@ -196,6 +200,22 @@ const ProjectPlanningDashboard = () => {
         setInternalProjectsList(internalListRes.data);
         setCurrentExternalPage(1);
         setCurrentInternalPage(1);
+        
+        // Fetch equipment names
+        try {
+          const equipmentNamesRes = await axios.get('/api/project-planning/get-equipment-names/');
+          setEquipmentNames(equipmentNamesRes.data);
+        } catch (error) {
+          console.error("Error fetching equipment names:", error);
+          // Create some mock equipment names if the API call fails
+          setEquipmentNames([
+            { id: "EQ-001", name: "Drill Machine" },
+            { id: "EQ-002", name: "Welding Equipment" },
+            { id: "EQ-003", name: "Forklift" },
+            { id: "EQ-004", name: "Concrete Mixer" },
+            { id: "EQ-005", name: "Excavator" }
+          ]);
+        }
       } catch (error) {
         console.error("Error fetching dropdown data:", error);
         setMessage({ 
@@ -230,10 +250,13 @@ const ProjectPlanningDashboard = () => {
         });
         break;
       case 'externalProjectEquipment':
-        setExternalProjectEquipmentForm({
-          ...externalProjectEquipmentForm,
-          [fieldName]: value
-        });
+        // For the projectId field
+        if (fieldName === 'projectId') {
+          setExternalProjectEquipmentForm({
+            ...externalProjectEquipmentForm,
+            projectId: value
+          });
+        }
         break;
       case 'externalProjectWarranty':
         setExternalProjectWarrantyForm({
@@ -268,6 +291,34 @@ const ProjectPlanningDashboard = () => {
       default:
         break;
     }
+  };
+
+  // Function to add another equipment field
+  const addEquipmentField = () => {
+    setExternalProjectEquipmentForm({
+      ...externalProjectEquipmentForm,
+      equipmentItems: [...externalProjectEquipmentForm.equipmentItems, { name: "" }]
+    });
+  };
+
+  // Function to remove an equipment field
+  const removeEquipmentField = (index) => {
+    const updatedItems = [...externalProjectEquipmentForm.equipmentItems];
+    updatedItems.splice(index, 1);
+    setExternalProjectEquipmentForm({
+      ...externalProjectEquipmentForm,
+      equipmentItems: updatedItems
+    });
+  };
+
+  // Function to update a specific equipment item
+  const updateEquipmentItem = (index, value) => {
+    const updatedItems = [...externalProjectEquipmentForm.equipmentItems];
+    updatedItems[index].name = value;
+    setExternalProjectEquipmentForm({
+      ...externalProjectEquipmentForm,
+      equipmentItems: updatedItems
+    });
   };
 
  // Add these functions to your component, right before or after your other handler functions
@@ -511,9 +562,22 @@ const handleEditProject = (projectId, isInternal = false) => {
     console.log("Submitting external project equipment form:", externalProjectEquipmentForm);
     
     try {
+      // Extract equipment names from the form
+      const equipmentNames = externalProjectEquipmentForm.equipmentItems
+        .map(item => item.name)
+        .filter(name => name.trim() !== "");
+      
+      if (equipmentNames.length === 0) {
+        setMessage({ 
+          text: "Please add at least one equipment item", 
+          type: "error" 
+        });
+        return;
+      }
+      
       const formData = {
         ProjectID: externalProjectEquipmentForm.projectId,
-        ProjectEquipmentID: externalProjectEquipmentForm.projectEquipmentId    
+        EquipmentNames: equipmentNames
       };
       
       console.log("Sending data to API:", formData);
@@ -523,14 +587,14 @@ const handleEditProject = (projectId, isInternal = false) => {
       console.log("API response:", response.data);
       
       setMessage({ 
-        text: "Project equipment added successfully!", 
+        text: `Successfully added ${equipmentNames.length} equipment items to the project!`, 
         type: "success" 
       });
       
       // Reset form
       setExternalProjectEquipmentForm({
         projectId: "",
-        projectEquipmentId: ""
+        equipmentItems: [{ name: "" }]
       });
       
       // Return to dashboard
@@ -918,6 +982,27 @@ const handleEditProject = (projectId, isInternal = false) => {
       }
     };
     
+    // Add this near the end of your component, just before the final return statement
+    const renderGanttChart = () => {
+      if (!showGanttChart) return null;
+      
+      return (
+        <div className="gantt-chart-overlay">
+          <div className="gantt-chart-container">
+            <div className="gantt-header">
+              <h2>Project Gantt Chart</h2>
+              <button 
+                className="close-gantt-button"
+                onClick={() => setShowGanttChart(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <ProjectGanttChart />
+          </div>
+        </div>
+      );
+    };
     // Function to render status badge
     const renderStatusBadge = (status) => {
       if (!status) return <span className="status-badge">Not set</span>;
@@ -1561,7 +1646,7 @@ const handleEditProject = (projectId, isInternal = false) => {
     );
   };
 
-  // Function to render External Project Equipment Form
+  // Function to render External Project Equipment Form - Updated to support multiple equipment items
   const renderExternalProjectEquipmentForm = () => {
     return (
       <div className="project-form-container">
@@ -1586,21 +1671,51 @@ const handleEditProject = (projectId, isInternal = false) => {
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">
-              Project Equipment ID*
-            </label>
-            <select
-              className="form-select"
-              value={externalProjectEquipmentForm.projectEquipmentId}
-              onChange={(e) => handleInputChange('externalProjectEquipment', 'projectEquipmentId', e.target.value)}
-              required
-            >
-              <option value="">Select Equipment ID</option>
-              {equipmentIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
-              ))}
-            </select>
+          <div className="form-section">
+            <div className="form-section-header">
+              <h3>Equipment Items</h3>
+              <button 
+                type="button" 
+                className="add-item-button"
+                onClick={addEquipmentField}
+              >
+                <FaPlusCircle /> Add Equipment
+              </button>
+            </div>
+            
+            {externalProjectEquipmentForm.equipmentItems.map((item, index) => (
+              <div key={index} className="equipment-item">
+                <div className="form-group">
+                  <label className="form-label">
+                    Equipment Name*
+                  </label>
+                  <div className="input-with-button">
+                    <select
+                      className="form-select"
+                      value={item.name}
+                      onChange={(e) => updateEquipmentItem(index, e.target.value)}
+                      required
+                    >
+                      <option value="">Select Equipment</option>
+                      {equipmentNames.map((equipment) => (
+                        <option key={equipment.id} value={equipment.name}>
+                          {equipment.name}
+                        </option>
+                      ))}
+                    </select>
+                    {index > 0 && (
+                      <button 
+                        type="button" 
+                        className="remove-item-button"
+                        onClick={() => removeEquipmentField(index)}
+                      >
+                        <FaTrash /> Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           <div className="form-actions">
@@ -1614,7 +1729,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                 setActiveView("dashboard");
                 setExternalProjectEquipmentForm({
                   projectId: "",
-                  projectEquipmentId: ""
+                  equipmentItems: [{ name: "" }]
                 });
               }}
             >
@@ -2071,9 +2186,12 @@ const handleEditProject = (projectId, isInternal = false) => {
       <div className="project-planning-header">
         <h1 className="project-planning-title">Project Planning</h1>
         <div className="project-planning-actions">
-          <button className="gantt-chart-button">
-            <FaChartLine /> Gantt Chart
-          </button>
+        <button 
+          className="gantt-chart-button"
+          onClick={() => setActiveView("ganttChart")}
+        >
+          <FaChartLine /> Gantt Chart
+        </button>
           {activeView !== "dashboard" && (
             <button 
               className="back-to-dashboard-button"
@@ -2084,6 +2202,8 @@ const handleEditProject = (projectId, isInternal = false) => {
           )}
         </div>
       </div>
+
+      {renderGanttChart()}
 
       {message.text && (
         <div className={`message ${message.type}`}>
@@ -2100,15 +2220,16 @@ const handleEditProject = (projectId, isInternal = false) => {
         </div>
       )}
 
-      {activeView === "dashboard" && renderDashboard()}
-      {activeView === "externalProjectRequest" && renderExternalProjectRequestForm()}
-      {activeView === "externalProjectDetails" && renderExternalProjectDetailsForm()}
-      {activeView === "externalProjectLabor" && renderExternalProjectLaborForm()}
-      {activeView === "externalProjectEquipment" && renderExternalProjectEquipmentForm()}
-      {activeView === "externalProjectWarranty" && renderExternalProjectWarrantyForm()}
-      {activeView === "internalProjectRequest" && renderInternalProjectRequestForm()}
-      {activeView === "internalProjectDetails" && renderInternalProjectDetailsForm()}
-      {activeView === "internalProjectLabor" && renderInternalProjectLaborForm()}
+    {activeView === "dashboard" && renderDashboard()}
+    {activeView === "externalProjectRequest" && renderExternalProjectRequestForm()}
+    {activeView === "externalProjectDetails" && renderExternalProjectDetailsForm()}
+    {activeView === "externalProjectLabor" && renderExternalProjectLaborForm()}
+    {activeView === "externalProjectEquipment" && renderExternalProjectEquipmentForm()}
+    {activeView === "externalProjectWarranty" && renderExternalProjectWarrantyForm()}
+    {activeView === "internalProjectRequest" && renderInternalProjectRequestForm()}
+    {activeView === "internalProjectDetails" && renderInternalProjectDetailsForm()}
+    {activeView === "internalProjectLabor" && renderInternalProjectLaborForm()}
+    {activeView === "ganttChart" && <ProjectGanttChart />}
     </div>
   );
 };

@@ -1,4 +1,3 @@
-# project_warranties/serializers.py
 from rest_framework import serializers
 from .models import ExternalProjectDetails, ProjectWarrantyView, ExternalProjectRequest, ExternalProjectsDetails
 

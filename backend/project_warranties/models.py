@@ -1,4 +1,3 @@
-# project_warranties/models.py
 from django.db import models
 
 class ExternalProjectRequest(models.Model):

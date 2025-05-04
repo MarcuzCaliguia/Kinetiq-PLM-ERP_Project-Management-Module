@@ -14,7 +14,7 @@ class ExternalProjectRequest(models.Model):
 class ExternalProjectDetails(models.Model):
     project_id = models.CharField(primary_key=True, max_length=255)
     ext_project_request = models.ForeignKey('ExternalProjectRequest', models.DO_NOTHING, db_column='ext_project_request_id', blank=True, null=True)
-    project_status = models.TextField()  # This field type is a guess.
+    project_status = models.TextField()  
 
     class Meta:
         managed = False
@@ -68,7 +68,7 @@ class InternalProjectRequest(models.Model):
 class InternalProjectDetails(models.Model):
     intrnl_project_id = models.CharField(primary_key=True, max_length=255)
     project_request = models.ForeignKey('InternalProjectRequest', models.DO_NOTHING, db_column='project_request_id', blank=True, null=True)
-    intrnl_project_status = models.TextField()  # This field type is a guess.
+    intrnl_project_status = models.TextField()  
     approval_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:

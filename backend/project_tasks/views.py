@@ -40,7 +40,7 @@ def execute_query(query, params=None, fetch_all=True):
 @api_view(['GET'])
 @db_operation("retrieving internal tasks")
 def get_internal_tasks(request):
-    # Fixed query - we need to check the actual column names in the view
+    
     tasks = execute_query("""
         SELECT 
             t.*,
@@ -65,7 +65,7 @@ def get_internal_tasks(request):
 @api_view(['GET'])
 @db_operation("retrieving external tasks")
 def get_external_tasks(request):
-    # Fixed query - we need to check the actual column names in the view
+    
     tasks = execute_query("""
         SELECT 
             t.*,
@@ -91,7 +91,7 @@ def get_external_tasks(request):
 def create_external_task(request):
     logger.info(f"Creating external task with data: {request.data}")
     
-    # Extract data with defaults
+    
     data = request.data
     project_id = data.get('ProjectID')
     task_description = data.get('TaskDescription', '')
@@ -99,7 +99,7 @@ def create_external_task(request):
     task_deadline = data.get('Taskdeadline')
     project_labor_id = data.get('Laborid')
     
-    # Validate required fields
+    
     required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
                       'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
     missing = [k for k, v in required_fields.items() if not v]
@@ -110,7 +110,7 @@ def create_external_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Verify project exists
+    
     project_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.external_project_details WHERE project_id = %s",
         [project_id], fetch_all=False
@@ -122,7 +122,7 @@ def create_external_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Verify labor exists
+    
     labor_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
         [project_labor_id], fetch_all=False
@@ -134,7 +134,7 @@ def create_external_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Insert the task
+    
     result = execute_query("""
         INSERT INTO project_management.project_tasks
         (project_id, task_description, task_status, task_deadline, project_labor_id)
@@ -150,7 +150,7 @@ def create_external_task(request):
     
     task_id = result.get('task_id')
     
-    # Get the created task details
+    
     task_data = execute_query("""
         SELECT * FROM project_management.external_project_tasks
         WHERE task_id = %s
@@ -163,7 +163,7 @@ def create_external_task(request):
 def create_internal_task(request):
     logger.info(f"Creating internal task with data: {request.data}")
     
-    # Extract data with defaults
+    
     data = request.data
     project_id = data.get('ProjectID')
     task_description = data.get('TaskDescription', '')
@@ -171,7 +171,7 @@ def create_internal_task(request):
     task_deadline = data.get('Taskdeadline')
     project_labor_id = data.get('Laborid')
     
-    # Validate required fields
+    
     required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
                       'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
     missing = [k for k, v in required_fields.items() if not v]
@@ -182,7 +182,7 @@ def create_internal_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Verify project exists
+    
     project_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.internal_project_details WHERE intrnl_project_id = %s",
         [project_id], fetch_all=False
@@ -194,7 +194,7 @@ def create_internal_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Verify labor exists
+    
     labor_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
         [project_labor_id], fetch_all=False
@@ -206,7 +206,7 @@ def create_internal_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Insert the task
+    
     result = execute_query("""
         INSERT INTO project_management.project_tasks
         (intrnl_project_id, task_description, task_status, task_deadline, project_labor_id)
@@ -222,7 +222,7 @@ def create_internal_task(request):
     
     task_id = result.get('task_id')
     
-    # Get the created task details
+    
     task_data = execute_query("""
         SELECT * FROM project_management.internal_project_tasks
         WHERE task_id = %s
@@ -328,10 +328,10 @@ def get_employee_details(request, employee_id):
         )
     
     try:
-        # Add logging to see what's being requested
+        
         logger.info(f"Fetching details for employee ID: {employee_id}")
         
-        # Query the employees table with joins to get department name and position title
+        
         employee = execute_query("""
             SELECT 
                 e.employee_id, 
@@ -354,7 +354,7 @@ def get_employee_details(request, employee_id):
                 e.employee_id = %s
         """, [employee_id], fetch_all=False)
         
-        # Log the result to see what we're getting
+        
         logger.info(f"Employee details retrieved: {employee}")
         
         if not employee:
@@ -363,7 +363,7 @@ def get_employee_details(request, employee_id):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        # Return the employee record directly
+        
         return Response(employee)
     except Exception as e:
         logger.error(f"Error fetching employee details: {str(e)}")

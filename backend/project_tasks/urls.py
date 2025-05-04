@@ -1,14 +1,13 @@
-# In project_tasks/urls.py
 from django.urls import path
 from . import views
 
 app_name = 'project_tasks'
 
 urlpatterns = [
-    # Make sure this is at the top to avoid it being caught by more generic patterns
+    
     path('api/employee-details/<str:employee_id>/', views.get_employee_details, name='employee-details'),
     
-    # Other URL patterns
+    
     path('api/external-tasks/', views.get_external_tasks, name='get-external-tasks'),
     path('api/internal-tasks/', views.get_internal_tasks, name='get-internal-tasks'),
     path('api/internal-tasks/create/', views.create_internal_task, name='create-internal-task'),

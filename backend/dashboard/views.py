@@ -8,7 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Helper decorator for database operations
+
 def db_operation(operation_description):
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -27,7 +27,7 @@ def db_operation(operation_description):
         return wrapper
     return decorator
 
-# Helper function to execute database queries
+
 def execute_query(query, params=None, fetch_all=True):
     with connection.cursor() as cursor:
         cursor.execute(query, params or [])
@@ -46,7 +46,7 @@ def execute_query(query, params=None, fetch_all=True):
 def get_overdue_tasks(request):
     today = datetime.now().date()
     
-    # Optimized query - join with employee data in a single query
+    
     tasks = execute_query("""
         SELECT 
             pt.task_id,
@@ -78,7 +78,7 @@ def get_overdue_tasks(request):
     
     formatted_tasks = []
     for task in tasks:
-        # Fix: Check if task_deadline is already a date
+        
         task_deadline = task['task_deadline']
         if hasattr(task_deadline, 'date'):
             task_deadline = task_deadline.date()
@@ -105,7 +105,7 @@ def get_overdue_tasks(request):
 def get_today_tasks(request):
     today = datetime.now().date()
     
-    # Optimized query - get all necessary data in a single query
+    
     tasks = execute_query("""
         SELECT 
             pt.task_id,
@@ -163,7 +163,7 @@ def get_today_tasks(request):
 @api_view(['GET'])
 @db_operation("retrieving internal tasks")
 def get_internal_tasks(request):
-    # Fixed query - using pt instead of t for column references
+    
     tasks = execute_query("""
         SELECT 
             pt.task_id,
@@ -192,7 +192,7 @@ def get_internal_tasks(request):
             pt.intrnl_project_id IS NOT NULL
     """)
     
-    # Format the response for consistency with other endpoints
+    
     formatted_tasks = []
     for task in tasks:
         formatted_tasks.append({
@@ -214,7 +214,7 @@ def get_internal_tasks(request):
 @api_view(['GET'])
 @db_operation("retrieving external tasks")
 def get_external_tasks(request):
-    # Fixed query - using pt instead of t for column references
+    
     tasks = execute_query("""
         SELECT 
             pt.task_id,
@@ -243,7 +243,7 @@ def get_external_tasks(request):
             pt.project_id IS NOT NULL
     """)
     
-    # Format the response for consistency with other endpoints
+    
     formatted_tasks = []
     for task in tasks:
         formatted_tasks.append({
@@ -265,7 +265,7 @@ def get_external_tasks(request):
 @api_view(['GET'])
 @db_operation("retrieving project summary")
 def get_project_summary(request):
-    # External projects
+    
     external_projects = execute_query("""
         SELECT 
             epd.project_id,
@@ -294,7 +294,7 @@ def get_project_summary(request):
             'issue': project['has_issues']
         })
     
-    # Internal projects
+    
     internal_projects = execute_query("""
         SELECT 
             ipd.intrnl_project_id,
@@ -323,7 +323,7 @@ def get_project_summary(request):
             'issue': project['has_issues']
         })
     
-    # Combine both project types
+    
     all_projects = formatted_external + formatted_internal
     
     logger.info(f"Project summary retrieved: {len(all_projects)} projects")
@@ -333,7 +333,7 @@ def get_project_summary(request):
 @db_operation("retrieving project details")
 def get_project_detail(request, project_type, project_id):
     if project_type == 'External':
-        # Get basic project details
+        
         project = execute_query("""
             SELECT 
                 epd.project_id,
@@ -358,7 +358,7 @@ def get_project_detail(request, project_type, project_id):
         if not project:
             return Response({"detail": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get tasks for this project
+        
         tasks = execute_query("""
             SELECT 
                 task_id,
@@ -382,7 +382,7 @@ def get_project_detail(request, project_type, project_id):
                 'deadline': task['task_deadline'].strftime('%Y-%m-%d') if hasattr(task['task_deadline'], 'strftime') else str(task['task_deadline'])
             })
         
-        # Get labor assignments for this project
+        
         labor = execute_query("""
             SELECT 
                 pl.project_labor_id,
@@ -424,7 +424,7 @@ def get_project_detail(request, project_type, project_id):
         }
     
     elif project_type == 'Internal':
-        # Get basic project details
+        
         project = execute_query("""
             SELECT 
                 ipd.intrnl_project_id,
@@ -445,7 +445,7 @@ def get_project_detail(request, project_type, project_id):
         if not project:
             return Response({"detail": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
         
-        # Get tasks for this project
+        
         tasks = execute_query("""
             SELECT 
                 task_id,
@@ -469,7 +469,7 @@ def get_project_detail(request, project_type, project_id):
                 'deadline': task['task_deadline'].strftime('%Y-%m-%d') if hasattr(task['task_deadline'], 'strftime') else str(task['task_deadline'])
             })
         
-        # Get labor assignments for this project
+        
         labor = execute_query("""
             SELECT 
                 pl.project_labor_id,
@@ -497,7 +497,7 @@ def get_project_detail(request, project_type, project_id):
             'intrnl_project_tracking_id': project['intrnl_project_id'],
             'intrnl_project_id': project['intrnl_project_id'],
             'project_name': project['project_name'],
-            'project_description': "No description available",  # Providing a default since the column doesn't exist
+            'project_description': "No description available",  
             'intrnl_project_status': project['intrnl_project_status'],
             'intrnl_start_date': project['start_date'].strftime('%Y-%m-%d') if hasattr(project['start_date'], 'strftime') else str(project['start_date']),
             'intrnl_estimated_end_date': project['estimated_end_date'].strftime('%Y-%m-%d') if hasattr(project['estimated_end_date'], 'strftime') else str(project['estimated_end_date']),
@@ -522,7 +522,7 @@ def get_employee_details(request, employee_id):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Query the employees table with joins to get department name and position title
+    
     employee = execute_query("""
         SELECT 
             e.employee_id, 
@@ -561,7 +561,7 @@ def update_task_status(request, task_id):
     if not new_status:
         return Response({"detail": "Status is required"}, status=status.HTTP_400_BAD_REQUEST)
     
-    # Update the task status
+    
     result = execute_query("""
         UPDATE project_management.project_tasks
         SET task_status = %s
