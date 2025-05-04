@@ -5,6 +5,12 @@ from rest_framework.pagination import PageNumberPagination
 from django.db import connection, transaction
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.conf import settings
+from django.core.cache import cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_cookie
+
 from .models import (
     ExternalProjectRequest, ExternalProjectDetails,
     ExternalProjectEquipments, InternalProjectRequest,
@@ -19,8 +25,16 @@ from .serializers import (
 import datetime 
 from decimal import Decimal
 import logging
+import functools
 
 logger = logging.getLogger(__name__)
+
+# Cache timeout values
+CACHE_TTL_SHORT = getattr(settings, 'CACHE_TTL_SHORT', 60 * 5)  # 5 minutes
+CACHE_TTL_MEDIUM = getattr(settings, 'CACHE_TTL_MEDIUM', 60 * 30)  # 30 minutes
+CACHE_TTL_LONG = getattr(settings, 'CACHE_TTL_LONG', 60 * 60 * 2)  # 2 hours
+DB_STATEMENT_TIMEOUT = getattr(settings, 'DB_STATEMENT_TIMEOUT', 30000)  # 30 seconds
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -47,7 +61,38 @@ def dictfetchall(cursor):
     ]
 
 
+def with_db_timeout(func):
+    """Decorator to set a longer timeout for database operations"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with connection.cursor() as cursor:
+            cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
+            try:
+                return func(*args, **kwargs)
+            finally:
+                cursor.execute("RESET statement_timeout")
+    return wrapper
+
+
+def format_response_data(data):
+    """Format data for response - handle None values and dates"""
+    for item in data:
+        for key, value in item.items():
+            if value is None:
+                item[key] = 'N/A'
+            elif isinstance(value, (datetime.date, datetime.datetime)):
+                item[key] = value.isoformat()
+    return data
+
+
 def column_exists(table_name, column_name, schema='project_management'):
+    """Check if a column exists in a table"""
+    cache_key = f"column_exists:{schema}.{table_name}.{column_name}"
+    cached_result = cache.get(cache_key)
+    
+    if cached_result is not None:
+        return cached_result
+    
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT column_name 
@@ -56,11 +101,20 @@ def column_exists(table_name, column_name, schema='project_management'):
             AND table_name = %s 
             AND column_name = %s
         """, [schema, table_name, column_name])
-        return cursor.fetchone() is not None
+        result = cursor.fetchone() is not None
+        
+    # Cache result for 1 hour - schema changes are infrequent
+    cache.set(cache_key, result, 60 * 60)
+    return result
 
 
+@with_db_timeout
 def add_performance_indexes():
     """Add indexes to improve query performance"""
+    cache_key = "performance_indexes_added"
+    if cache.get(cache_key):
+        return
+        
     with connection.cursor() as cursor:
         try:
             # Add indexes to external project tables
@@ -103,16 +157,34 @@ def add_performance_indexes():
                 
                 CREATE INDEX IF NOT EXISTS idx_archived_int_project_request_name 
                 ON project_management.archived_internal_project_request(project_name);
+                
+                -- Add indexes on archived date for faster sorting
+                CREATE INDEX IF NOT EXISTS idx_archived_ext_project_request_date 
+                ON project_management.archived_external_project_request(archived_date);
+                
+                CREATE INDEX IF NOT EXISTS idx_archived_int_project_request_date 
+                ON project_management.archived_internal_project_request(archived_date);
+                
+                -- Add composite indexes for common query patterns
+                CREATE INDEX IF NOT EXISTS idx_ext_project_request_composite 
+                ON project_management.external_project_request(ext_project_name, approval_id, item_id);
+                
+                CREATE INDEX IF NOT EXISTS idx_int_project_request_composite 
+                ON project_management.internal_project_request(project_name, employee_id, dept_id);
             """)
             logger.info("Performance indexes created successfully")
+            
+            # Cache the result so we don't try to create indexes again
+            cache.set(cache_key, True, 60 * 60 * 24)  # 24 hours
         except Exception as e:
             logger.error(f"Error creating performance indexes: {str(e)}")
 
 
+@with_db_timeout
 def archive_external_request(request_id, user_id=None):
     """Archive an external project request and its related data"""
     with connection.cursor() as cursor:
-        
+        # Create archive tables if they don't exist
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS project_management.archived_external_project_request (
                 ext_project_request_id character varying(255) NOT NULL,
@@ -149,6 +221,18 @@ def archive_external_request(request_id, user_id=None):
         try:
             cursor.execute("BEGIN")
             
+            # Check if request exists before archiving
+            cursor.execute("""
+                SELECT ext_project_request_id FROM project_management.external_project_request
+                WHERE ext_project_request_id = %s
+            """, [request_id])
+            
+            if cursor.fetchone() is None:
+                cursor.execute("ROLLBACK")
+                logger.warning(f"External request {request_id} not found for archiving")
+                return False
+            
+            # Archive request
             cursor.execute("""
                 INSERT INTO project_management.archived_external_project_request
                 (ext_project_request_id, ext_project_name, ext_project_description, approval_id, item_id, archived_by)
@@ -161,6 +245,7 @@ def archive_external_request(request_id, user_id=None):
                 ON CONFLICT (ext_project_request_id) DO NOTHING
             """, [user_id, request_id])
             
+            # Archive details
             cursor.execute("""
                 INSERT INTO project_management.archived_external_project_details
                 (project_id, ext_project_request_id, project_status, project_milestone, start_date, 
@@ -177,6 +262,7 @@ def archive_external_request(request_id, user_id=None):
                 ON CONFLICT (project_id) DO NOTHING
             """, [user_id, request_id])
             
+            # Add is_archived column if it doesn't exist
             if not column_exists('external_project_request', 'is_archived'):
                 cursor.execute("""
                     ALTER TABLE project_management.external_project_request 
@@ -189,6 +275,7 @@ def archive_external_request(request_id, user_id=None):
                     ADD COLUMN is_archived BOOLEAN DEFAULT FALSE
                 """)
             
+            # Mark as archived
             cursor.execute("""
                 UPDATE project_management.external_project_request
                 SET is_archived = TRUE
@@ -202,18 +289,23 @@ def archive_external_request(request_id, user_id=None):
             """, [request_id])
             
             cursor.execute("COMMIT")
+            
+            # Invalidate relevant caches
+            cache.delete_pattern("external_project_*")
+            
             return True
             
         except Exception as e:
             cursor.execute("ROLLBACK")
-            logger.error(f"Error archiving external request: {str(e)}")
+            logger.error(f"Error archiving external request {request_id}: {str(e)}")
             return False
 
 
+@with_db_timeout
 def archive_internal_request(request_id, user_id=None):
     """Archive an internal project request and its related data"""
     with connection.cursor() as cursor:
-        
+        # Create archive tables if they don't exist
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS project_management.archived_internal_project_request (
                 project_request_id character varying(255) NOT NULL,
@@ -250,6 +342,18 @@ def archive_internal_request(request_id, user_id=None):
         try:
             cursor.execute("BEGIN")
             
+            # Check if request exists before archiving
+            cursor.execute("""
+                SELECT project_request_id FROM project_management.internal_project_request
+                WHERE project_request_id = %s
+            """, [request_id])
+            
+            if cursor.fetchone() is None:
+                cursor.execute("ROLLBACK")
+                logger.warning(f"Internal request {request_id} not found for archiving")
+                return False
+            
+            # Archive request
             cursor.execute("""
                 INSERT INTO project_management.archived_internal_project_request
                 (project_request_id, project_name, request_date, employee_id, dept_id, 
@@ -264,6 +368,7 @@ def archive_internal_request(request_id, user_id=None):
                 ON CONFLICT (project_request_id) DO NOTHING
             """, [user_id, request_id])
             
+            # Archive details
             cursor.execute("""
                 INSERT INTO project_management.archived_internal_project_details
                 (intrnl_project_id, project_request_id, intrnl_project_status, approval_id, 
@@ -278,6 +383,7 @@ def archive_internal_request(request_id, user_id=None):
                 ON CONFLICT (intrnl_project_id) DO NOTHING
             """, [user_id, request_id])
             
+            # Add is_archived column if it doesn't exist
             if not column_exists('internal_project_request', 'is_archived'):
                 cursor.execute("""
                     ALTER TABLE project_management.internal_project_request 
@@ -290,6 +396,7 @@ def archive_internal_request(request_id, user_id=None):
                     ADD COLUMN is_archived BOOLEAN DEFAULT FALSE
                 """)
             
+            # Mark as archived
             cursor.execute("""
                 UPDATE project_management.internal_project_request
                 SET is_archived = TRUE
@@ -303,18 +410,67 @@ def archive_internal_request(request_id, user_id=None):
             """, [request_id])
             
             cursor.execute("COMMIT")
+            
+            # Invalidate relevant caches
+            cache.delete_pattern("internal_project_*")
+            
             return True
             
         except Exception as e:
             cursor.execute("ROLLBACK")
-            logger.error(f"Error archiving internal request: {str(e)}")
+            logger.error(f"Error archiving internal request {request_id}: {str(e)}")
             return False
 
 
-class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
+class BaseProjectViewSet(viewsets.ModelViewSet):
+    """Base ViewSet with common methods for all project viewsets"""
+    pagination_class = StandardResultsSetPagination
+    
+    def get_archive_filter(self, table_name):
+        """Get the archive filter clause for SQL queries"""
+        has_is_archived = column_exists(table_name, 'is_archived')
+        return f"AND ({table_name}.is_archived IS NULL OR {table_name}.is_archived = FALSE)" if has_is_archived else ""
+    
+    def build_where_clause(self, filter_conditions):
+        """Build a WHERE clause from filter conditions"""
+        if filter_conditions:
+            return "WHERE " + " AND ".join(filter_conditions)
+        return "WHERE 1=1"
+    
+    def get_pagination_response(self, data, total_count, page, page_size, base_url):
+        """Build a paginated response"""
+        total_pages = (total_count + page_size - 1) // page_size
+        
+        return {
+            'count': total_count,
+            'next': f'{base_url}?page={page+1}' if page < total_pages else None,
+            'previous': f'{base_url}?page={page-1}' if page > 1 else None,
+            'total_pages': total_pages,
+            'current_page': page,
+            'results': format_response_data(data)
+        }
+    
+    def parse_pagination_params(self, request):
+        """Parse pagination parameters from request"""
+        try:
+            page = int(request.query_params.get('page', 1))
+        except ValueError:
+            page = 1
+        
+        try:
+            page_size = min(
+                int(request.query_params.get('page_size', 10)),
+                self.pagination_class.max_page_size
+            )
+        except ValueError:
+            page_size = 10
+            
+        return page, page_size
+
+
+class ExternalProjectRequestViewSet(BaseProjectViewSet):
     queryset = ExternalProjectRequest.objects.all()
     serializer_class = ExternalProjectRequestSerializer
-    pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
         """Override to filter out archived requests by default"""
@@ -326,17 +482,13 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    @method_decorator(cache_page(CACHE_TTL_SHORT))
+    @method_decorator(vary_on_cookie)
     def list(self, request, *args, **kwargs):
         """Override list to include specific columns with filtering"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -366,23 +518,20 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                 filter_params.append(f"%{status}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
             
-            # Check if is_archived column exists
-            has_is_archived = column_exists('external_project_request', 'is_archived')
+            # Get archive filter
+            archive_filter = self.get_archive_filter('epr')
             
-            # Add archive filter if column exists
-            archive_filter = ""
-            if has_is_archived:
-                archive_filter = "AND (epr.is_archived IS NULL OR epr.is_archived = FALSE)"
+            # Cache key for this specific query
+            cache_key = f"external_project_list:{page}:{page_size}:{project_name}:{approval_id}:{item_id}:{status}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries (30 seconds instead of 10)
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -416,29 +565,19 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/external-requests/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/external-requests/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/external-requests/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_SHORT)
                 
             return Response(response_data)
         except Exception as e:
@@ -460,11 +599,15 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
             success_count = 0
             failed_ids = []
             
-            for request_id in ids:
-                if archive_external_request(request_id, user_id):
-                    success_count += 1
-                else:
-                    failed_ids.append(request_id)
+            with transaction.atomic():
+                for request_id in ids:
+                    if archive_external_request(request_id, user_id):
+                        success_count += 1
+                    else:
+                        failed_ids.append(request_id)
+            
+            # Invalidate cache after bulk operation
+            cache.delete_pattern("external_project_*")
             
             return Response({
                 "message": f"Successfully archived {success_count} of {len(ids)} requests",
@@ -480,10 +623,9 @@ class ExternalProjectRequestViewSet(viewsets.ModelViewSet):
             )
 
 
-class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
+class ExternalProjectDetailsViewSet(BaseProjectViewSet):
     queryset = ExternalProjectDetails.objects.all()
     serializer_class = ExternalProjectDetailsSerializer
-    pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
         """Override to filter out archived details by default"""
@@ -495,17 +637,13 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    @method_decorator(cache_page(CACHE_TTL_SHORT))
+    @method_decorator(vary_on_cookie)
     def list(self, request, *args, **kwargs):
         """Override list to include all columns from external_project_details with filtering"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -530,23 +668,20 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 filter_params.append(f"%{status}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
             
-            # Check if is_archived column exists
-            has_is_archived = column_exists('external_project_details', 'is_archived')
+            # Get archive filter
+            archive_filter = self.get_archive_filter('epd')
             
-            # Add archive filter if column exists
-            archive_filter = ""
-            if has_is_archived:
-                archive_filter = "AND (epd.is_archived IS NULL OR epd.is_archived = FALSE)"
+            # Cache key for this specific query
+            cache_key = f"external_project_details:{page}:{page_size}:{project_name}:{approval_id}:{status}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries (30 seconds instead of 10)
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -587,29 +722,19 @@ class ExternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/external-projects/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/external-projects/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/external-projects/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_SHORT)
                 
             return Response(response_data)
         except Exception as e:
@@ -625,10 +750,9 @@ class ExternalProjectEquipmentsViewSet(viewsets.ModelViewSet):
     serializer_class = ExternalProjectEquipmentsSerializer
 
 
-class InternalProjectRequestViewSet(viewsets.ModelViewSet):
+class InternalProjectRequestViewSet(BaseProjectViewSet):
     queryset = InternalProjectRequest.objects.all()
     serializer_class = InternalProjectRequestSerializer
-    pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
         """Override to filter out archived requests by default"""
@@ -640,17 +764,13 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    @method_decorator(cache_page(CACHE_TTL_SHORT))
+    @method_decorator(vary_on_cookie)
     def list(self, request, *args, **kwargs):
         """Override list to include project details with specific columns and filtering"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -685,23 +805,20 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 filter_params.append(f"%{status}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
             
-            # Check if is_archived column exists
-            has_is_archived = column_exists('internal_project_request', 'is_archived')
+            # Get archive filter
+            archive_filter = self.get_archive_filter('ipr')
             
-            # Add archive filter if column exists
-            archive_filter = ""
-            if has_is_archived:
-                archive_filter = "AND (ipr.is_archived IS NULL OR ipr.is_archived = FALSE)"
+            # Cache key for this specific query
+            cache_key = f"internal_project_list:{page}:{page_size}:{project_name}:{approval_id}:{employee_id}:{dept_id}:{status}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries (30 seconds instead of 10)
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -718,7 +835,7 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get data with optimized query using indexes
+                # Get data with optimized query using indexes - FIX FOR ENUM ISSUE
                 data_query = f"""
                     SELECT 
                         ipr.project_request_id, 
@@ -745,29 +862,19 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/internal-requests/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/internal-requests/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/internal-requests/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_SHORT)
                 
             return Response(response_data)
         except Exception as e:
@@ -789,11 +896,15 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
             success_count = 0
             failed_ids = []
             
-            for request_id in ids:
-                if archive_internal_request(request_id, user_id):
-                    success_count += 1
-                else:
-                    failed_ids.append(request_id)
+            with transaction.atomic():
+                for request_id in ids:
+                    if archive_internal_request(request_id, user_id):
+                        success_count += 1
+                    else:
+                        failed_ids.append(request_id)
+            
+            # Invalidate cache after bulk operation
+            cache.delete_pattern("internal_project_*")
             
             return Response({
                 "message": f"Successfully archived {success_count} of {len(ids)} requests",
@@ -809,10 +920,9 @@ class InternalProjectRequestViewSet(viewsets.ModelViewSet):
             )
     
 
-class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
+class InternalProjectDetailsViewSet(BaseProjectViewSet):
     queryset = InternalProjectDetails.objects.all()
     serializer_class = InternalProjectDetailsSerializer
-    pagination_class = StandardResultsSetPagination
     
     def get_queryset(self):
         """Override to filter out archived details by default"""
@@ -824,17 +934,13 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
             
         return queryset
     
+    @method_decorator(cache_page(CACHE_TTL_SHORT))
+    @method_decorator(vary_on_cookie)
     def list(self, request, *args, **kwargs):
         """Override list to include all columns from internal_project_details with filtering"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -864,23 +970,20 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 filter_params.append(f"%{status}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
             
-            # Check if is_archived column exists
-            has_is_archived = column_exists('internal_project_details', 'is_archived')
+            # Get archive filter
+            archive_filter = self.get_archive_filter('ipd')
             
-            # Add archive filter if column exists
-            archive_filter = ""
-            if has_is_archived:
-                archive_filter = "AND (ipd.is_archived IS NULL OR ipd.is_archived = FALSE)"
+            # Cache key for this specific query
+            cache_key = f"internal_project_details:{page}:{page_size}:{project_name}:{approval_id}:{employee_id}:{status}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries (30 seconds instead of 10)
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -895,7 +998,7 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(count_query, filter_params)
                 total_count = cursor.fetchone()[0]
                 
-                # Get data with optimized query
+                # Get data with optimized query - FIX FOR ENUM ISSUE
                 data_query = f"""
                     SELECT 
                         ipd.intrnl_project_id,
@@ -923,29 +1026,19 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/internal-projects/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/internal-projects/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/internal-projects/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_SHORT)
                 
             return Response(response_data)
         except Exception as e:
@@ -959,6 +1052,8 @@ class InternalProjectDetailsViewSet(viewsets.ModelViewSet):
 class ProjectWarrantyViewSet(viewsets.ViewSet):
     """View for project warranty information"""
     
+    @method_decorator(cache_page(CACHE_TTL_MEDIUM))
+    @method_decorator(vary_on_cookie)
     @action(detail=False, methods=['get'])
     def warranty_list(self, request):
         try:
@@ -984,11 +1079,7 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
                 filter_params.append(f"%{warranty_status}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = "WHERE " + " AND ".join(filter_conditions) if filter_conditions else "WHERE 1=1"
             
             # Check if is_archived column exists
             has_is_archived = column_exists('external_project_details', 'is_archived')
@@ -998,9 +1089,15 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
             if has_is_archived:
                 archive_filter = "AND (d.is_archived IS NULL OR d.is_archived = FALSE)"
             
+            # Cache key for this specific query
+            cache_key = f"warranty_list:{project_id}:{project_name}:{warranty_status}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
+            
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries (30 seconds instead of 10)
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get warranty data with optimized query
                 query = f"""
@@ -1017,23 +1114,27 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
                         project_management.external_project_request r 
                         ON d.ext_project_request_id = r.ext_project_request_id
                     {where_clause} {archive_filter}
-                    ORDER BY d.project_id
+                    ORDER BY 
+                        CASE 
+                            WHEN d.warranty_status = 'Active' THEN 1
+                            WHEN d.warranty_status = 'Expiring Soon' THEN 2
+                            WHEN d.warranty_status = 'Expired' THEN 3
+                            ELSE 4
+                        END,
+                        d.warranty_end_date
                 """
                 cursor.execute(query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
             # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
+            formatted_data = format_response_data(data)
+            
+            # Cache the response
+            cache.set(cache_key, formatted_data, CACHE_TTL_MEDIUM)
                 
-            return Response(data)
+            return Response(formatted_data)
         except Exception as e:
             logger.error(f"Error fetching warranty data: {str(e)}")
             return Response(
@@ -1042,6 +1143,7 @@ class ProjectWarrantyViewSet(viewsets.ViewSet):
             )
 
 
+@with_db_timeout
 def restore_external_request(request_id, user_id=None):
     """Restore an archived external project request and its related data"""
     with connection.cursor() as cursor:
@@ -1082,6 +1184,9 @@ def restore_external_request(request_id, user_id=None):
                 WHERE ext_project_request_id = %s
             """, [request_id])
             
+            # Ensure restore log table exists
+            setup_restore_log()
+            
             # Log the restore action
             cursor.execute("""
                 INSERT INTO project_management.restore_log
@@ -1092,13 +1197,19 @@ def restore_external_request(request_id, user_id=None):
             """, [request_id, user_id, user_id])
             
             cursor.execute("COMMIT")
+            
+            # Invalidate relevant caches
+            cache.delete_pattern("external_project_*")
+            cache.delete_pattern("archived_external_*")
+            
             return True, "Successfully restored external request"
         except Exception as e:
             cursor.execute("ROLLBACK")
-            logger.error(f"Error restoring external request: {str(e)}")
+            logger.error(f"Error restoring external request {request_id}: {str(e)}")
             return False, str(e)
 
 
+@with_db_timeout
 def restore_internal_request(request_id, user_id=None):
     """Restore an archived internal project request and its related data"""
     with connection.cursor() as cursor:
@@ -1139,6 +1250,9 @@ def restore_internal_request(request_id, user_id=None):
                 WHERE project_request_id = %s
             """, [request_id])
             
+            # Ensure restore log table exists
+            setup_restore_log()
+            
             # Log the restore action
             cursor.execute("""
                 INSERT INTO project_management.restore_log
@@ -1149,35 +1263,29 @@ def restore_internal_request(request_id, user_id=None):
             """, [request_id, user_id, user_id])
             
             cursor.execute("COMMIT")
+            
+            # Invalidate relevant caches
+            cache.delete_pattern("internal_project_*")
+            cache.delete_pattern("archived_internal_*")
+            
             return True, "Successfully restored internal request"
         except Exception as e:
             cursor.execute("ROLLBACK")
-            logger.error(f"Error restoring internal request: {str(e)}")
+            logger.error(f"Error restoring internal request {request_id}: {str(e)}")
             return False, str(e)
 
 
-class ArchivedProjectsViewSet(viewsets.ViewSet):
+class ArchivedProjectsViewSet(BaseProjectViewSet):
     """ViewSet for managing archived projects"""
-    pagination_class = StandardResultsSetPagination
     
-    def get_paginated_response(self, data):
-        """Return a paginated response using the pagination class"""
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(data, self.request)
-        return paginator.get_paginated_response(page if page is not None else data)
-    
+    @method_decorator(cache_page(CACHE_TTL_MEDIUM))
+    @method_decorator(vary_on_cookie)
     @action(detail=False, methods=['get'])
     def external_requests(self, request):
         """Get archived external project requests"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -1197,15 +1305,17 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
                 filter_params.append(f"%{approval_id}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
+            
+            # Cache key for this specific query
+            cache_key = f"archived_external_requests:{page}:{page_size}:{project_name}:{approval_id}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -1238,29 +1348,19 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.datetime) or isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/archived-projects/external_requests/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/archived-projects/external_requests/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/archived-projects/external_requests/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_MEDIUM)
                 
             return Response(response_data)
         except Exception as e:
@@ -1270,18 +1370,14 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
                 status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
+    @method_decorator(cache_page(CACHE_TTL_MEDIUM))
+    @method_decorator(vary_on_cookie)
     @action(detail=False, methods=['get'])
     def internal_requests(self, request):
         """Get archived internal project requests"""
         try:
-            # Get page and page size from query params
-            page = request.query_params.get('page', 1)
-            try:
-                page = int(page)
-            except ValueError:
-                page = 1
-            
-            page_size = 10
+            # Get pagination parameters
+            page, page_size = self.parse_pagination_params(request)
             offset = (page - 1) * page_size
             
             # Get filter parameters
@@ -1296,15 +1392,17 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
                 filter_params.append(f"%{project_name}%")
             
             # Build WHERE clause
-            where_clause = ""
-            if filter_conditions:
-                where_clause = "WHERE " + " AND ".join(filter_conditions)
-            else:
-                where_clause = "WHERE 1=1"  
+            where_clause = self.build_where_clause(filter_conditions)
+            
+            # Cache key for this specific query
+            cache_key = f"archived_internal_requests:{page}:{page_size}:{project_name}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                return Response(cached_data)
             
             with connection.cursor() as cursor:
-                # Set a longer timeout for complex queries
-                cursor.execute("SET statement_timeout = 30000")
+                cursor.execute(f"SET statement_timeout = {DB_STATEMENT_TIMEOUT}")
                 
                 # Get total count with optimized query
                 count_query = f"""
@@ -1338,29 +1436,19 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
                 cursor.execute(data_query, filter_params)
                 data = dictfetchall(cursor)
                 
-                # Reset timeout
                 cursor.execute("RESET statement_timeout")
             
-            # Format data for response
-            for item in data:
-                for key, value in item.items():
-                    if value is None:
-                        item[key] = 'N/A'
-                    elif isinstance(value, datetime.datetime) or isinstance(value, datetime.date):
-                        item[key] = value.isoformat()
-            
-            # Calculate pagination values
-            total_pages = (total_count + page_size - 1) // page_size
-            
             # Build response with pagination info
-            response_data = {
-                'count': total_count,
-                'next': f'/api/project-management/archived-projects/internal_requests/?page={page+1}' if page < total_pages else None,
-                'previous': f'/api/project-management/archived-projects/internal_requests/?page={page-1}' if page > 1 else None,
-                'total_pages': total_pages,
-                'current_page': page,
-                'results': data
-            }
+            response_data = self.get_pagination_response(
+                data, 
+                total_count, 
+                page, 
+                page_size, 
+                '/api/project-management/archived-projects/internal_requests/'
+            )
+            
+            # Cache the response
+            cache.set(cache_key, response_data, CACHE_TTL_MEDIUM)
                 
             return Response(response_data)
         except Exception as e:
@@ -1384,13 +1472,18 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
             failed_ids = []
             messages = []
             
-            for request_id in ids:
-                success, message = restore_external_request(request_id, user_id)
-                if success:
-                    success_count += 1
-                else:
-                    failed_ids.append(request_id)
-                    messages.append(f"ID {request_id}: {message}")
+            with transaction.atomic():
+                for request_id in ids:
+                    success, message = restore_external_request(request_id, user_id)
+                    if success:
+                        success_count += 1
+                    else:
+                        failed_ids.append(request_id)
+                        messages.append(f"ID {request_id}: {message}")
+            
+            # Invalidate cache after bulk operation
+            cache.delete_pattern("external_project_*")
+            cache.delete_pattern("archived_external_*")
             
             return Response({
                 "message": f"Successfully restored {success_count} of {len(ids)} requests",
@@ -1420,13 +1513,18 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
             failed_ids = []
             messages = []
             
-            for request_id in ids:
-                success, message = restore_internal_request(request_id, user_id)
-                if success:
-                    success_count += 1
-                else:
-                    failed_ids.append(request_id)
-                    messages.append(f"ID {request_id}: {message}")
+            with transaction.atomic():
+                for request_id in ids:
+                    success, message = restore_internal_request(request_id, user_id)
+                    if success:
+                        success_count += 1
+                    else:
+                        failed_ids.append(request_id)
+                        messages.append(f"ID {request_id}: {message}")
+            
+            # Invalidate cache after bulk operation
+            cache.delete_pattern("internal_project_*")
+            cache.delete_pattern("archived_internal_*")
             
             return Response({
                 "message": f"Successfully restored {success_count} of {len(ids)} requests",
@@ -1443,7 +1541,13 @@ class ArchivedProjectsViewSet(viewsets.ViewSet):
             )
 
 
+@with_db_timeout
 def setup_restore_log():
+    """Set up the restore log table if it doesn't exist"""
+    cache_key = "restore_log_setup_complete"
+    if cache.get(cache_key):
+        return
+        
     with connection.cursor() as cursor:
         try:
             cursor.execute("""
@@ -1460,8 +1564,14 @@ def setup_restore_log():
             # Add index to restore log for better performance
             cursor.execute("""
                 CREATE INDEX IF NOT EXISTS idx_restore_log_item 
-                ON project_management.restore_log(item_id, item_type)
+                ON project_management.restore_log(item_id, item_type);
+                
+                CREATE INDEX IF NOT EXISTS idx_restore_log_date
+                ON project_management.restore_log(restore_date);
             """)
+            
+            # Cache the result so we don't check again
+            cache.set(cache_key, True, 60 * 60 * 24)  # 24 hours
         except Exception as e:
             logger.error(f"Error setting up restore log: {str(e)}")
 
