@@ -9,6 +9,8 @@ const ProjectPlanningDashboard = () => {
   const [editMode, setEditMode] = useState(false);
   const [editId, setEditId] = useState(null);
   const [message, setMessage] = useState({ text: "", type: "" });
+  // Add state for Gantt chart view
+  const [showGanttChart, setShowGanttChart] = useState(false);
   
   // Pagination states
   const [currentExternalPage, setCurrentExternalPage] = useState(1);
@@ -71,6 +73,12 @@ const ProjectPlanningDashboard = () => {
     warrantyEndDate: ""
   });
   
+  // External Project Cost Form (missing definition in the original code)
+  const [externalProjectCostForm, setExternalProjectCostForm] = useState({
+    projectId: "",
+    bomId: "",
+    projectBudgetApproval: ""
+  });
   
   // Internal Project Request Form
   const [internalProjectRequestForm, setInternalProjectRequestForm] = useState({
@@ -99,6 +107,15 @@ const ProjectPlanningDashboard = () => {
     jobRole: "",
     employeeId: ""
   });
+
+  // Toggle Gantt Chart view
+  const toggleGanttChart = () => {
+    setShowGanttChart(!showGanttChart);
+    if (!showGanttChart) {
+      // When showing Gantt chart, reset to dashboard view in the background
+      setActiveView("dashboard");
+    }
+  };
 
   // Fetch all dropdown data on component mount
   useEffect(() => {
@@ -641,6 +658,118 @@ const ProjectPlanningDashboard = () => {
         setCurrentInternalPage(currentInternalPage - 1);
       }
     };
+
+    const [currentDate, setCurrentDate] = useState(new Date(2025, 3, 3)); // April 3, 2025
+  const [selectedDate, setSelectedDate] = useState(new Date(2025, 3, 3)); // April 3, 2025
+  
+  // Sample task data
+  const tasks = [
+    {
+      id: 1,
+      title: "Prepare first monday...",
+      startTime: new Date(2025, 3, 3, 9, 0), // 9:00 AM
+      endTime: new Date(2025, 3, 3, 10, 30), // 10:30 AM
+      color: "#d4e8ff",
+      borderColor: "#4b89ff"
+    },
+    {
+      id: 2,
+      title: "Project Research...",
+      startTime: new Date(2025, 3, 3, 10, 45), // 10:45 AM
+      endTime: new Date(2025, 3, 3, 11, 45), // 11:45 AM
+      color: "#d4ffdb",
+      borderColor: "#4bff7e"
+    },
+    {
+      id: 3,
+      title: "BREAK",
+      startTime: new Date(2025, 3, 3, 12, 0), // 12:00 PM
+      endTime: new Date(2025, 3, 3, 14, 0), // 2:00 PM
+      color: "#009688",
+      borderColor: "#009688",
+      isBreak: true
+    },
+    {
+      id: 4,
+      title: "Build Project List chuchu chu chu chu 2025",
+      startTime: new Date(2025, 3, 3, 9, 30), // 9:30 AM
+      endTime: new Date(2025, 3, 3, 11, 30), // 11:30 AM
+      color: "#fff3d4",
+      borderColor: "#ffb74b"
+    },
+    {
+      id: 5,
+      title: "Get Sales Order...",
+      startTime: new Date(2025, 3, 3, 13, 0), // 1:00 PM
+      endTime: new Date(2025, 3, 3, 13, 45), // 1:45 PM
+      color: "#ffd4f4",
+      borderColor: "#ff4bda"
+    },
+    {
+      id: 6,
+      title: "Follow up BOM to Batman & Alfred",
+      startTime: new Date(2025, 3, 3, 11, 0), // 11:00 AM
+      endTime: new Date(2025, 3, 3, 12, 30), // 12:30 PM
+      color: "#ffd4d4",
+      borderColor: "#ff4b4b"
+    }
+  ];
+
+  // Upcoming tasks
+  const upcomingTasks = [
+    {
+      id: 101,
+      title: "Prepare BOM this coming Tuesday for Sales Module...",
+      date: "Tue, Apr 15, 2025",
+      time: "10:30 - 13:30"
+    },
+    {
+      id: 102,
+      title: "Meeting with IT Team for distribution task...",
+      date: "Tue, Apr 15, 2025",
+      time: "15:30 - 16:30"
+    }
+  ];
+
+  // Navigate to previous day
+  const goToPreviousDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setSelectedDate(newDate);
+  };
+
+  // Navigate to next day
+  const goToNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setSelectedDate(newDate);
+  };
+
+  // Navigate to previous month in calendar
+  const goToPreviousMonth = () => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() - 1);
+    setCurrentDate(newDate);
+  };
+
+  // Navigate to next month in calendar
+  const goToNextMonth = () => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(newDate.getMonth() + 1);
+    setCurrentDate(newDate);
+  };
+
+  // Format the date for display
+  const formatDateHeader = (date) => {
+    const options = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Handle day selection in calendar
+  const handleDaySelect = (date) => {
+    setSelectedDate(date);
+  };
+
   
     return (
       <div className="project-lists-section">
@@ -1139,126 +1268,123 @@ const ProjectPlanningDashboard = () => {
     );
   };
 
-  // Function to render External Project Warranty Form
-  const renderExternalProjectWarrantyForm = () => {
-    return (
-      <div className="project-form-container">
-        <h2 className="form-title">External Project Warranty</h2>
-        <form onSubmit={handleExternalProjectWarrantySubmit} className="project-form">
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project ID*</b>
-            </label>
-            <select
-              className="form-select"
-              value={externalProjectWarrantyForm.projectId}
-              onChange={(e) => handleInputChange('externalProjectWarranty', 'projectId', e.target.value)}
-              required
-            >
-              <option value="">Select Project ID</option>
-              {projectIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Warranty Coverage Year*</b>
-            </label>
-            <input
-              className="form-input"
-              type="number"
-              placeholder="Coverage in years"
-              value={externalProjectWarrantyForm.warrantyCoverageYear}
-              onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyCoverageYear', e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-row">
+    // Function to render External Project Warranty Form
+    const renderExternalProjectWarrantyForm = () => {
+      return (
+        <div className="project-form-container">
+          <h2 className="form-title">External Project Warranty</h2>
+          <form onSubmit={handleExternalProjectWarrantySubmit} className="project-form">
             <div className="form-group">
               <label className="form-label">
-                <b>Warranty Start Date*</b>
+                <b>Project ID*</b>
               </label>
-              <input
-                className="form-input"
-                type="date"
-                value={externalProjectWarrantyForm.warrantyStartDate}
-                onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyStartDate', e.target.value)}
+              <select
+                className="form-select"
+                value={externalProjectWarrantyForm.projectId}
+                onChange={(e) => handleInputChange('externalProjectWarranty', 'projectId', e.target.value)}
                 required
-              />
+              >
+                <option value="">Select Project ID</option>
+                {projectIds.map((id) => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </select>
             </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                <b>Warranty End Date*</b>
-              </label>
-              <input
-                className="form-input"
-                type="date"
-                value={externalProjectWarrantyForm.warrantyEndDate}
-                onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyEndDate', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="form-button save-button">
-              <b>Save</b>
-            </button>
-            <button 
-              type="button" 
-              className="form-button cancel-button"
-              onClick={() => {
-                setActiveView("dashboard");
-                setExternalProjectWarrantyForm({
-                  projectId: "",
-                  warrantyCoverageYear: "",
-                  warrantyStartDate: "",
-                  warrantyEndDate: ""
-                });
-              }}
-            >
-              <b>Cancel</b>
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  };
-
-
   
-
-  // Function to render Internal Project Request Form
-  const renderInternalProjectRequestForm = () => {
-    const validProjectTypes = ["Training Program", "Department Event", "Facility Maintenance"];
-    return (
-      <div className="project-form-container">
-        <h2 className="form-title">Internal Project Request</h2>
-        <form onSubmit={handleInternalProjectRequestSubmit} className="project-form">
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project Name*</b>
-            </label>
-            <input
-              className="form-input"
-              type="text"
-              placeholder="Name"
-              value={internalProjectRequestForm.projectName}
-              onChange={(e) => handleInputChange('internalProjectRequest', 'projectName', e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-row">
             <div className="form-group">
               <label className="form-label">
-                <b>Request Date*</b>
+                <b>Warranty Coverage Year*</b>
               </label>
               <input
+                className="form-input"
+                type="number"
+                placeholder="Coverage in years"
+                value={externalProjectWarrantyForm.warrantyCoverageYear}
+                onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyCoverageYear', e.target.value)}
+                required
+              />
+            </div>
+  
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">
+                  <b>Warranty Start Date*</b>
+                </label>
+                <input
+                  className="form-input"
+                  type="date"
+                  value={externalProjectWarrantyForm.warrantyStartDate}
+                  onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyStartDate', e.target.value)}
+                  required
+                />
+              </div>
+  
+              <div className="form-group">
+                <label className="form-label">
+                  <b>Warranty End Date*</b>
+                </label>
+                <input
+                  className="form-input"
+                  type="date"
+                  value={externalProjectWarrantyForm.warrantyEndDate}
+                  onChange={(e) => handleInputChange('externalProjectWarranty', 'warrantyEndDate', e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+  
+            <div className="form-actions">
+              <button type="submit" className="form-button save-button">
+                <b>Save</b>
+              </button>
+              <button 
+                type="button" 
+                className="form-button cancel-button"
+                onClick={() => {
+                  setActiveView("dashboard");
+                  setExternalProjectWarrantyForm({
+                    projectId: "",
+                    warrantyCoverageYear: "",
+                    warrantyStartDate: "",
+                    warrantyEndDate: ""
+                  });
+                }}
+              >
+                <b>Cancel</b>
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    };
+  
+    // Function to render Internal Project Request Form
+    const renderInternalProjectRequestForm = () => {
+      const validProjectTypes = ["Training Program", "Department Event", "Facility Maintenance"];
+      return (
+        <div className="project-form-container">
+          <h2 className="form-title">Internal Project Request</h2>
+          <form onSubmit={handleInternalProjectRequestSubmit} className="project-form">
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Name*</b>
+              </label>
+              <input
+                className="form-input"
+                type="text"
+                placeholder="Name"
+                value={internalProjectRequestForm.projectName}
+                onChange={(e) => handleInputChange('internalProjectRequest', 'projectName', e.target.value)}
+                required
+              />
+            </div>
+  
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">
+                  <b>Request Date*</b>
+                </label>
+                <input
                 className="form-input"
                 type="date"
                 value={internalProjectRequestForm.requestDate}
@@ -1289,209 +1415,209 @@ const ProjectPlanningDashboard = () => {
                 className="form-select"
                 value={internalProjectRequestForm.employeeId}
                 onChange={(e) => handleInputChange('internalProjectRequest', 'employeeId', e.target.value)}
-              >
-                <option value="">Select Employee</option>
-                {employeeIds.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
-                  </option>
-                ))}
-              </select>
+                >
+                  <option value="">Select Employee</option>
+                  {employeeIds.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} ({employee.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+  
+              <div className="form-group">
+                <label className="form-label">
+                  <b>Department</b>
+                </label>
+                <select
+                  className="form-select"
+                  value={internalProjectRequestForm.departmentId}
+                  onChange={(e) => handleInputChange('internalProjectRequest', 'departmentId', e.target.value)}
+                >
+                  <option value="">Select Department</option>
+                  {departmentIds.map((id) => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-
+  
             <div className="form-group">
               <label className="form-label">
-                <b>Department</b>
+                <b>Reason For Request</b>
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder="Describe the reason for this project request"
+                value={internalProjectRequestForm.reasonForRequest}
+                onChange={(e) => handleInputChange('internalProjectRequest', 'reasonForRequest', e.target.value)}
+              />
+            </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Materials Needed</b>
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder="List any materials needed for this project"
+                value={internalProjectRequestForm.materialsNeeded}
+                onChange={(e) => handleInputChange('internalProjectRequest', 'materialsNeeded', e.target.value)}
+              />
+            </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Equipment Needed</b>
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder="List any equipment needed for this project"
+                value={internalProjectRequestForm.equipmentNeeded}
+                onChange={(e) => handleInputChange('internalProjectRequest', 'equipmentNeeded', e.target.value)}
+              />
+            </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Type</b>
               </label>
               <select
                 className="form-select"
-                value={internalProjectRequestForm.departmentId}
-                onChange={(e) => handleInputChange('internalProjectRequest', 'departmentId', e.target.value)}
+                value={internalProjectRequestForm.projectType}
+                onChange={(e) => handleInputChange('internalProjectRequest', 'projectType', e.target.value)}
               >
-                <option value="">Select Department</option>
-                {departmentIds.map((id) => (
+                <option value="">Select Project Type</option>
+                {validProjectTypes.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+  
+            <div className="form-actions">
+              <button type="submit" className="form-button save-button">
+                <b>Save</b>
+              </button>
+              <button 
+                type="button" 
+                className="form-button cancel-button"
+                onClick={() => {
+                  setActiveView("dashboard");
+                  setInternalProjectRequestForm({
+                    projectName: "",
+                    requestDate: "",
+                    startingDate: "",
+                    employeeId: "",
+                    departmentId: "",
+                    reasonForRequest: "",
+                    materialsNeeded: "",
+                    equipmentNeeded: "",
+                    projectType: ""
+                  });
+                }}
+              >
+                <b>Cancel</b>
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    };
+  
+    // Function to render Internal Project Details Form
+    const renderInternalProjectDetailsForm = () => {
+      return (
+        <div className="project-form-container">
+          <h2 className="form-title">Internal Project Details</h2>
+          <form onSubmit={handleInternalProjectDetailsSubmit} className="project-form">
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Request ID*</b>
+              </label>
+              <select
+                className="form-select"
+                value={internalProjectDetailsForm.projectRequestId}
+                onChange={(e) => handleInputChange('internalProjectDetails', 'projectRequestId', e.target.value)}
+                required
+              >
+                <option value="">Select Project Request ID</option>
+                {internalProjectRequestIds.map((id) => (
                   <option key={id} value={id}>{id}</option>
                 ))}
               </select>
             </div>
-          </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Status</b>
+              </label>
+              <select
+                className="form-select"
+                value={internalProjectDetailsForm.projectStatus}
+                onChange={(e) => handleInputChange('internalProjectDetails', 'projectStatus', e.target.value)}
+                required
+              >
+                <option value="">Choose Project Status</option>
+                {internalProjectStatusOptions.map((status) => (
+                  <option key={status} value={status}>{status.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Approval ID</b>
+              </label>
+              <select
+                className="form-select"
+                value={internalProjectDetailsForm.approvalId}
+                onChange={(e) => handleInputChange('internalProjectDetails', 'approvalId', e.target.value)}
+              >
+                <option value="">Select Approval ID</option>
+                {internalApprovalIds.map((id) => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </select>
+            </div>
+  
+            <div className="form-group">
+              <label className="form-label">
+                <b>Project Description</b>
+              </label>
+              <textarea
+                className="form-textarea"
+                placeholder="Project Description"
+                value={internalProjectDetailsForm.projectDescription}
+                onChange={(e) => handleInputChange('internalProjectDetails', 'projectDescription', e.target.value)}
+              />
+            </div>
+  
+            <div className="form-actions">
+              <button type="submit" className="form-button save-button">
+                <b>Save</b>
+              </button>
+              <button 
+                type="button" 
+                className="form-button cancel-button"
+                onClick={() => {
+                  setActiveView("dashboard");
+                  setInternalProjectDetailsForm({
+                    projectRequestId: "",
+                    projectStatus: "",
+                    approvalId: "",
+                    projectDescription: ""
+                  });
+                }}
+              >
+                <b>Cancel</b>
+              </button>
+            </div>
+          </form>
+        </div>
+      );
+    };
 
-          <div className="form-group">
-            <label className="form-label">
-              <b>Reason For Request</b>
-            </label>
-            <textarea
-              className="form-textarea"
-              placeholder="Describe the reason for this project request"
-              value={internalProjectRequestForm.reasonForRequest}
-              onChange={(e) => handleInputChange('internalProjectRequest', 'reasonForRequest', e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Materials Needed</b>
-            </label>
-            <textarea
-              className="form-textarea"
-              placeholder="List any materials needed for this project"
-              value={internalProjectRequestForm.materialsNeeded}
-              onChange={(e) => handleInputChange('internalProjectRequest', 'materialsNeeded', e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Equipment Needed</b>
-            </label>
-            <textarea
-              className="form-textarea"
-              placeholder="List any equipment needed for this project"
-              value={internalProjectRequestForm.equipmentNeeded}
-              onChange={(e) => handleInputChange('internalProjectRequest', 'equipmentNeeded', e.target.value)}
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project Type</b>
-            </label>
-            <select
-              className="form-select"
-              value={internalProjectRequestForm.projectType}
-              onChange={(e) => handleInputChange('internalProjectRequest', 'projectType', e.target.value)}
-            >
-              <option value="">Select Project Type</option>
-              {validProjectTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="form-button save-button">
-              <b>Save</b>
-            </button>
-            <button 
-              type="button" 
-              className="form-button cancel-button"
-              onClick={() => {
-                setActiveView("dashboard");
-                setInternalProjectRequestForm({
-                  projectName: "",
-                  requestDate: "",
-                  startingDate: "",
-                  employeeId: "",
-                  departmentId: "",
-                  reasonForRequest: "",
-                  materialsNeeded: "",
-                  equipmentNeeded: "",
-                  projectType: ""
-                });
-              }}
-            >
-              <b>Cancel</b>
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  };
-
-  // Function to render Internal Project Details Form
-  const renderInternalProjectDetailsForm = () => {
-    return (
-      <div className="project-form-container">
-        <h2 className="form-title">Internal Project Details</h2>
-        <form onSubmit={handleInternalProjectDetailsSubmit} className="project-form">
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project Request ID*</b>
-            </label>
-            <select
-              className="form-select"
-              value={internalProjectDetailsForm.projectRequestId}
-              onChange={(e) => handleInputChange('internalProjectDetails', 'projectRequestId', e.target.value)}
-              required
-            >
-              <option value="">Select Project Request ID</option>
-              {internalProjectRequestIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project Status</b>
-            </label>
-            <select
-              className="form-select"
-              value={internalProjectDetailsForm.projectStatus}
-              onChange={(e) => handleInputChange('internalProjectDetails', 'projectStatus', e.target.value)}
-              required
-            >
-              <option value="">Choose Project Status</option>
-              {internalProjectStatusOptions.map((status) => (
-                <option key={status} value={status}>{status.replace('_', ' ')}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Approval ID</b>
-            </label>
-            <select
-              className="form-select"
-              value={internalProjectDetailsForm.approvalId}
-              onChange={(e) => handleInputChange('internalProjectDetails', 'approvalId', e.target.value)}
-            >
-              <option value="">Select Approval ID</option>
-              {internalApprovalIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <b>Project Description</b>
-            </label>
-            <textarea
-              className="form-textarea"
-              placeholder="Project Description"
-              value={internalProjectDetailsForm.projectDescription}
-              onChange={(e) => handleInputChange('internalProjectDetails', 'projectDescription', e.target.value)}
-            />
-          </div>
-
-          <div className="form-actions">
-            <button type="submit" className="form-button save-button">
-              <b>Save</b>
-            </button>
-            <button 
-              type="button" 
-              className="form-button cancel-button"
-              onClick={() => {
-                setActiveView("dashboard");
-                setInternalProjectDetailsForm({
-                  projectRequestId: "",
-                  projectStatus: "",
-                  approvalId: "",
-                  projectDescription: ""
-                });
-              }}
-            >
-              <b>Cancel</b>
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  };
-
-  // Function to render Internal Project Labor Form
+      // Function to render Internal Project Labor Form
   const renderInternalProjectLaborForm = () => {
     return (
       <div className="project-form-container">
@@ -1573,16 +1699,31 @@ const ProjectPlanningDashboard = () => {
     );
   };
 
+  // Render Gantt Chart view
+  const renderGanttChart = () => {
+    return (
+      <div className="gantt-chart-container">
+        <h2 className="gantt-chart-title">Project Gantt Chart</h2>
+        <div className="gantt-chart-content">
+        
+        </div>
+      </div>
+    );
+  };
+
   // Main render function
   return (
     <div className="project-planning-container">
       <div className="project-planning-header">
         <h1 className="project-planning-title">Project Planning</h1>
         <div className="project-planning-actions">
-          <button className="gantt-chart-button">
-            <b>Gantt Chart</b>
+          <button 
+            className={`gantt-chart-button ${showGanttChart ? 'active' : ''}`}
+            onClick={toggleGanttChart}
+          >
+            <b>{showGanttChart ? 'Back to Dashboard' : 'Gantt Chart'}</b>
           </button>
-          {activeView !== "dashboard" && (
+          {!showGanttChart && activeView !== "dashboard" && (
             <button 
               className="back-to-dashboard-button"
               onClick={() => setActiveView("dashboard")}
@@ -1599,15 +1740,22 @@ const ProjectPlanningDashboard = () => {
         </div>
       )}
 
-      {activeView === "dashboard" && renderDashboard()}
-      {activeView === "externalProjectRequest" && renderExternalProjectRequestForm()}
-      {activeView === "externalProjectDetails" && renderExternalProjectDetailsForm()}
-      {activeView === "externalProjectLabor" && renderExternalProjectLaborForm()}
-      {activeView === "externalProjectEquipment" && renderExternalProjectEquipmentForm()}
-      {activeView === "externalProjectWarranty" && renderExternalProjectWarrantyForm()}
-      {activeView === "internalProjectRequest" && renderInternalProjectRequestForm()}
-      {activeView === "internalProjectDetails" && renderInternalProjectDetailsForm()}
-      {activeView === "internalProjectLabor" && renderInternalProjectLaborForm()}
+      {/* Conditional rendering based on showGanttChart state */}
+      {showGanttChart ? (
+        renderGanttChart()
+      ) : (
+        <>
+          {activeView === "dashboard" && renderDashboard()}
+          {activeView === "externalProjectRequest" && renderExternalProjectRequestForm()}
+          {activeView === "externalProjectDetails" && renderExternalProjectDetailsForm()}
+          {activeView === "externalProjectLabor" && renderExternalProjectLaborForm()}
+          {activeView === "externalProjectEquipment" && renderExternalProjectEquipmentForm()}
+          {activeView === "externalProjectWarranty" && renderExternalProjectWarrantyForm()}
+          {activeView === "internalProjectRequest" && renderInternalProjectRequestForm()}
+          {activeView === "internalProjectDetails" && renderInternalProjectDetailsForm()}
+          {activeView === "internalProjectLabor" && renderInternalProjectLaborForm()}
+        </>
+      )}
     </div>
   );
 };
