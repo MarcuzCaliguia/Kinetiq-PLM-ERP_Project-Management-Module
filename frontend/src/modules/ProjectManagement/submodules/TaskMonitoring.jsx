@@ -40,6 +40,9 @@ const TaskMonitoring = () => {
   const [employeeModalLoading, setEmployeeModalLoading] = useState(false);
   const [employeeModalError, setEmployeeModalError] = useState(null);
 
+  // Success message state
+  const [successMessage, setSuccessMessage] = useState(null);
+
   // Effect to hide external UI elements
   useEffect(() => {
     // Function to hide the unwanted UI elements
@@ -84,6 +87,17 @@ const TaskMonitoring = () => {
       observer.disconnect();
     };
   }, []);
+
+  // Effect to auto-hide success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
 
   // API functions with error handling
   const fetchData = async (url, errorMessage) => {
@@ -290,6 +304,9 @@ const TaskMonitoring = () => {
       const updatedTasks = await fetchData(`${API_URL}/external-tasks/`, 'Error fetching external tasks');
       setTaskdata(Array.isArray(updatedTasks) ? updatedTasks : []);
       
+      // Show success message
+      setSuccessMessage("External task created successfully!");
+      
       // Reset form
       resetForm();
     } catch (err) {
@@ -320,6 +337,9 @@ const TaskMonitoring = () => {
       
       const updatedTasks = await fetchData(`${API_URL}/internal-tasks/`, 'Error fetching internal tasks');
       setTaskdata2(Array.isArray(updatedTasks) ? updatedTasks : []);
+      
+      // Show success message
+      setSuccessMessage("Internal task created successfully!");
       
       // Reset form
       resetForm();
@@ -370,6 +390,9 @@ const TaskMonitoring = () => {
         
         const updatedTasks = await fetchData(`${API_URL}/external-tasks/`, 'Error fetching external tasks');
         setTaskdata(Array.isArray(updatedTasks) ? updatedTasks : []);
+        
+        // Show success message
+        setSuccessMessage(`Successfully deleted ${selectedReports.length} external task(s)!`);
       } else {
         // Get the actual indices from the full data array
         const startIndex = (currentPage2 - 1) * ITEMS_PER_PAGE;
@@ -384,6 +407,9 @@ const TaskMonitoring = () => {
         
         const updatedTasks = await fetchData(`${API_URL}/internal-tasks/`, 'Error fetching internal tasks');
         setTaskdata2(Array.isArray(updatedTasks) ? updatedTasks : []);
+        
+        // Show success message
+        setSuccessMessage(`Successfully deleted ${selectedReports.length} internal task(s)!`);
       }
       
       setSelectedReports([]);
@@ -501,6 +527,17 @@ const TaskMonitoring = () => {
               <span>{error}</span>
             </div>
             <button onClick={() => setError(null)}>&times;</button>
+          </div>
+        )}
+        
+        {/* Success message toast */}
+        {successMessage && (
+          <div className="success-toast">
+            <div>
+              <i className="fas fa-check-circle"></i>
+              <span>{successMessage}</span>
+            </div>
+            <button onClick={() => setSuccessMessage(null)}>&times;</button>
           </div>
         )}
 
@@ -775,8 +812,7 @@ const TaskMonitoring = () => {
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
                 <h3>
-                  <i className="fas fa-user-circle"></i> 
-                  {selectedEmployee ? 
+                  <i className="fas fa-user-circle"></i>                   {selectedEmployee ? 
                     `Employee: ${selectedEmployee.first_name} ${selectedEmployee.last_name}` : 
                     'Employee Details'}
                 </h3>
@@ -820,64 +856,64 @@ const TaskMonitoring = () => {
                   </div>
                   
                   <div className="employee-details-grid">
-  <div className="employee-detail-item">
-    <div className="detail-label">
-      <i className="fas fa-id-badge"></i> Employee ID
-    </div>
-    <div className="detail-value">{employeeDetails.employee_id || '-'}</div>
-  </div>
-  
-  <div className="employee-detail-item">
-    <div className="detail-label">
-      <i className="fas fa-building"></i> Department
-    </div>
-    <div className="detail-value">
-      {employeeDetails.dept_name || employeeDetails.dept_id || '-'}
-    </div>
-  </div>
-  
-  <div className="employee-detail-item">
-    <div className="detail-label">
-      <i className="fas fa-briefcase"></i> Position
-    </div>
-    <div className="detail-value">
-      {employeeDetails.position_title || employeeDetails.position_id || '-'}
-    </div>
-  </div>
-  
-  <div className="employee-detail-item">
-    <div className="detail-label">
-      <i className="fas fa-phone"></i> Phone
-    </div>
-    <div className="detail-value">{employeeDetails.phone || '-'}</div>
-  </div>
-  
-  <div className="employee-detail-item">
-    <div className="detail-label">
-      <i className="fas fa-user-tie"></i> Employment Type
-    </div>
-    <div className="detail-value">{employeeDetails.employment_type || '-'}</div>
-  </div>
-  
-  {/* Use formatDate for date fields */}
-  {employeeDetails.created_at && (
-    <div className="employee-detail-item">
-      <div className="detail-label">
-        <i className="fas fa-calendar-plus"></i> Joined Date
-      </div>
-      <div className="detail-value">{formatDate(employeeDetails.created_at)}</div>
-    </div>
-  )}
-  
-  {employeeDetails.updated_at && (
-    <div className="employee-detail-item">
-      <div className="detail-label">
-        <i className="fas fa-calendar-check"></i> Last Updated
-      </div>
-      <div className="detail-value">{formatDate(employeeDetails.updated_at)}</div>
-    </div>
-  )}
-</div>
+                    <div className="employee-detail-item">
+                      <div className="detail-label">
+                        <i className="fas fa-id-badge"></i> Employee ID
+                      </div>
+                      <div className="detail-value">{employeeDetails.employee_id || '-'}</div>
+                    </div>
+                    
+                    <div className="employee-detail-item">
+                      <div className="detail-label">
+                        <i className="fas fa-building"></i> Department
+                      </div>
+                      <div className="detail-value">
+                        {employeeDetails.dept_name || employeeDetails.dept_id || '-'}
+                      </div>
+                    </div>
+                    
+                    <div className="employee-detail-item">
+                      <div className="detail-label">
+                        <i className="fas fa-briefcase"></i> Position
+                      </div>
+                      <div className="detail-value">
+                        {employeeDetails.position_title || employeeDetails.position_id || '-'}
+                      </div>
+                    </div>
+                    
+                    <div className="employee-detail-item">
+                      <div className="detail-label">
+                        <i className="fas fa-phone"></i> Phone
+                      </div>
+                      <div className="detail-value">{employeeDetails.phone || '-'}</div>
+                    </div>
+                    
+                    <div className="employee-detail-item">
+                      <div className="detail-label">
+                        <i className="fas fa-user-tie"></i> Employment Type
+                      </div>
+                      <div className="detail-value">{employeeDetails.employment_type || '-'}</div>
+                    </div>
+                    
+                    {/* Use formatDate for date fields */}
+                    {employeeDetails.created_at && (
+                      <div className="employee-detail-item">
+                        <div className="detail-label">
+                          <i className="fas fa-calendar-plus"></i> Joined Date
+                        </div>
+                        <div className="detail-value">{formatDate(employeeDetails.created_at)}</div>
+                      </div>
+                    )}
+                    
+                    {employeeDetails.updated_at && (
+                      <div className="employee-detail-item">
+                        <div className="detail-label">
+                          <i className="fas fa-calendar-check"></i> Last Updated
+                        </div>
+                        <div className="detail-value">{formatDate(employeeDetails.updated_at)}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="modal-body">

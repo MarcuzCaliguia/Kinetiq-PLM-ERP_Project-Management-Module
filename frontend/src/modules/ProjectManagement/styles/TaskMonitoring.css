@@ -1236,3 +1236,74 @@ textarea.form-control {
     background-color: #1e293b;
   }
 }
+
+/* Success Toast Styling */
+.success-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: rgba(47, 158, 68, 0.95);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 400px;
+  animation: slideIn 0.3s ease-out forwards;
+  backdrop-filter: blur(4px);
+  border-left: 4px solid #1b7a2e;
+}
+
+.success-toast div {
+  display: flex;
+  align-items: center;
+}
+
+.success-toast i {
+  margin-right: 10px;
+  font-size: 18px;
+}
+
+.success-toast button {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  margin-left: 10px;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.success-toast button:hover {
+  opacity: 1;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.success-toast.hiding {
+  animation: slideOut 0.3s ease-in forwards;
+}
