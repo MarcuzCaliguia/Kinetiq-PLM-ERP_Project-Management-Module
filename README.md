@@ -39,6 +39,9 @@ axios (frontend dir):
 npm install axios
 npm install axios lodash
 npm install pdf-lib file-saver
+npm install react-icons --save
+npm install chart.js react-chartjs-2
+
 
 
 
