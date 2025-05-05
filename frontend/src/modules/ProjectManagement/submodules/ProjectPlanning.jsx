@@ -982,27 +982,6 @@ const handleEditProject = (projectId, isInternal = false) => {
       }
     };
     
-    // Add this near the end of your component, just before the final return statement
-    const renderGanttChart = () => {
-      if (!showGanttChart) return null;
-      
-      return (
-        <div className="gantt-chart-overlay">
-          <div className="gantt-chart-container">
-            <div className="gantt-header">
-              <h2>Project Gantt Chart</h2>
-              <button 
-                className="close-gantt-button"
-                onClick={() => setShowGanttChart(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <ProjectGanttChart />
-          </div>
-        </div>
-      );
-    };
     // Function to render status badge
     const renderStatusBadge = (status) => {
       if (!status) return <span className="status-badge">Not set</span>;
@@ -2180,6 +2159,28 @@ const handleEditProject = (projectId, isInternal = false) => {
     );
   };
 
+  // Function to render Gantt chart overlay
+  const renderGanttChart = () => {
+    if (!showGanttChart) return null;
+    
+    return (
+      <div className="gantt-chart-overlay">
+        <div className="gantt-chart-container">
+          <div className="gantt-header">
+            <h2>Project Gantt Chart</h2>
+            <button 
+              className="close-gantt-button"
+              onClick={() => setShowGanttChart(false)}
+            >
+              &times;
+            </button>
+          </div>
+          <ProjectGanttChart />
+        </div>
+      </div>
+    );
+  };
+
   // Main render function
   return (
     <div className="project-planning-container">
@@ -2188,7 +2189,7 @@ const handleEditProject = (projectId, isInternal = false) => {
         <div className="project-planning-actions">
         <button 
           className="gantt-chart-button"
-          onClick={() => setActiveView("ganttChart")}
+          onClick={() => setShowGanttChart(true)}
         >
           <FaChartLine /> Gantt Chart
         </button>
@@ -2203,7 +2204,7 @@ const handleEditProject = (projectId, isInternal = false) => {
         </div>
       </div>
 
-      {renderGanttChart()}
+      {showGanttChart && renderGanttChart()}
 
       {message.text && (
         <div className={`message ${message.type}`}>
