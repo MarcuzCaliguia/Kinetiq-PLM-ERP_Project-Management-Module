@@ -22,13 +22,16 @@ URL configuration for project_management_backend project.
 """
 from django.urls import path, include
 from django.http import HttpResponse
+from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 
-def health_check(request):
-    return HttpResponse("OK")
+def zappa_health_check(request):
+    return JsonResponse({'status': 'ok'})
 
 urlpatterns = [
-    path('', health_check),
+    path('health/', zappa_health_check),
+    path('', zappa_health_check),
+
     
     path('project-tasks/', include('project_tasks.urls')),
     path('api/project-planning/', include('project_planning.urls')),
