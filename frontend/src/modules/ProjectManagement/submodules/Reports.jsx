@@ -26,8 +26,8 @@ const BodyContent = () => {
   const [newDescriptionreport, setNewDescriptionreport] = useState("");
   const [selectedAssignedto, setSelectedAssignedto] = useState("");
   
-  const [showReportList, setShowReportList] = useState(true); // Show report list initially
-  const [currentForm, setCurrentForm] = useState(null); // null means no form visible
+  const [showReportList, setShowReportList] = useState(true);
+  const [currentForm, setCurrentForm] = useState(null);
   const [reportData, setReportData] = useState([]);
   const [selectedReports, setSelectedReports] = useState([]);
   
@@ -48,108 +48,100 @@ const BodyContent = () => {
     internalProjects: false
   });
 
-    const handleRejectionNotice = () => {
-    // Logic for handling rejection notice
-    alert("Rejection Notice functionality to be implemented.");
+  const fallbackData = {
+    reports: [],
+    reportTypes: [
+      'Sales Order',
+      'Resource Availability',
+      'Bill of Material',
+      'Information',
+      'Progress Report',
+      'Project Details',
+      'Inventory Movement',
+    ],
+    departments: [
+      'Accounting',
+      'Admin',
+      'Distribution',
+      'Finance',
+      'Human Resources',
+      'Inventory',
+      'Management',
+      'MRP',
+      'Operations',
+      'Production',
+      'Project Management',
+      'Purchasing',
+      'Sales',
+      'Services',
+      'Solution Customizing',
+      'Department - IT Team',
+      'Department - Project Management',
+    ],
+    externalProjects: [],
+    internalProjects: [],
   };
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      setApiErrors({
+        reports: false,
+        reportTypes: false,
+        departments: false,
+        externalProjects: false,
+        internalProjects: false
+      });
+
       try {
-        setLoading(true);
-        setError(null);
-        setApiErrors({
-          reports: false,
-          reportTypes: false,
-          departments: false,
-          externalProjects: false,
-          internalProjects: false
-        });
-        
-        console.log("Fetching data from API...");
-        
-        try {
-          const reportsResponse = await axios.get('/api/reports/');
-          console.log('Reports response:', reportsResponse.data);
-          setReportData(Array.isArray(reportsResponse.data) ? 
-            reportsResponse.data : reportsResponse.data.results || []);
-        } catch (err) {
-          console.error('Error fetching reports:', err);
-          setApiErrors(prev => ({ ...prev, reports: true }));
-        }
-        
-        try {
-          const typesResponse = await axios.get('/api/reports/report_types/');
-          console.log('Report types response:', typesResponse.data);
-          setReportTypes(typesResponse.data || []);
-        } catch (err) {
-          console.error('Error fetching report types:', err);
-          setApiErrors(prev => ({ ...prev, reportTypes: true }));
-          setReportTypes([
-            'Sales Order',
-            'Resource Availability',
-            'Bill of Material',
-            'Information',
-            'Progress Report',
-            'Project Details',
-            'Inventory Movement',
-          ]);
-        }
-        
-        try {
-          const deptsResponse = await axios.get('/api/reports/departments/');
-          console.log('Departments response:', deptsResponse.data);
-          setDepartments(deptsResponse.data || []);
-        } catch (err) {
-          console.error('Error fetching departments:', err);
-          setApiErrors(prev => ({ ...prev, departments: true }));
-          setDepartments([
-            'Accounting',
-            'Admin',
-            'Distribution',
-            'Finance',
-            'Human Resources',
-            'Inventory',
-            'Management',
-            'MRP',
-            'Operations',
-            'Production',
-            'Project Management',
-            'Purchasing',
-            'Sales',
-            'Services',
-            'Solution Customizing',
-            'Department - IT Team',
-            'Department - Project Management',
-          ]);
-        }
-        
-        try {
-          const externalProjectsResponse = await axios.get('/api/external-projects/');
-          console.log('External projects response:', externalProjectsResponse.data);
-          setExternalProjects(externalProjectsResponse.data || []);
-        } catch (err) {
-          console.error('Error fetching external projects:', err);
-          setApiErrors(prev => ({ ...prev, externalProjects: true }));
-        }
-        
-        try {
-          const internalProjectsResponse = await axios.get('/api/internal-projects/');
-          console.log('Internal projects response:', internalProjectsResponse.data);
-          setInternalProjects(internalProjectsResponse.data || []);
-        } catch (err) {
-          console.error('Error fetching internal projects:', err);
-          setApiErrors(prev => ({ ...prev, internalProjects: true }));
-        }
-        
-        setLoading(false);
+        const reportsResponse = await axios.get('/api/reports/');
+        setReportData(Array.isArray(reportsResponse.data) ? reportsResponse.data : reportsResponse.data.results || []);
       } catch (err) {
-        console.error('API Error:', err);
-        setError('Error fetching data: ' + (err.response?.data?.error || err.message));
-        setLoading(false);
+        console.error('Error fetching reports:', err);
+        setApiErrors(prev => ({ ...prev, reports: true }));
+        setReportData(fallbackData.reports); // Use fallback data
       }
+
+      try {
+        const typesResponse = await axios.get('/api/reports/report_types/');
+        setReportTypes(typesResponse.data || []);
+      } catch (err) {
+        console.error('Error fetching report types:', err);
+        setApiErrors(prev => ({ ...prev, reportTypes: true }));
+        setReportTypes(fallbackData.reportTypes); // Use fallback data
+      }
+
+      try {
+        const deptsResponse = await axios.get('/api/reports/departments/');
+        setDepartments(deptsResponse.data || []);
+      } catch (err) {
+        console.error('Error fetching departments:', err);
+        setApiErrors(prev => ({ ...prev, departments: true }));
+        setDepartments(fallbackData.departments); // Use fallback data
+      }
+
+      try {
+        const externalProjectsResponse = await axios.get('/api/external-projects/');
+        setExternalProjects(externalProjectsResponse.data || []);
+      } catch (err) {
+        console.error('Error fetching external projects:', err);
+        setApiErrors(prev => ({ ...prev, externalProjects: true }));
+        setExternalProjects(fallbackData.externalProjects); // Use fallback data
+      }
+
+      try {
+        const internalProjectsResponse = await axios.get('/api/internal-projects/');
+        setInternalProjects(internalProjectsResponse.data || []);
+      } catch (err) {
+        console.error('Error fetching internal projects:', err);
+        setApiErrors(prev => ({ ...prev, internalProjects: true }));
+        setInternalProjects(fallbackData.internalProjects); // Use fallback data
+      }
+
+      setLoading(false);
     };
-    
+
     fetchData();
   }, []);
 
@@ -176,13 +168,8 @@ const BodyContent = () => {
       const response = await axios.post('/api/reports/', reportDataPayload);
       console.log('Create report response:', response.data);
       
-      try {
-        const reportsResponse = await axios.get('/api/reports/');
-        setReportData(Array.isArray(reportsResponse.data) ? 
-          reportsResponse.data : reportsResponse.data.results || []);
-      } catch (err) {
-        console.error('Error refreshing reports:', err);
-      }
+      const reportsResponse = await axios.get('/api/reports/');
+      setReportData(Array.isArray(reportsResponse.data) ? reportsResponse.data : reportsResponse.data.results || []);
       
       setShowReportList(true);
       setCurrentForm(null);
@@ -207,10 +194,9 @@ const BodyContent = () => {
     setSelectedAssignedto("");
   };
 
-  // This handles clicking "Add Report" button to show the form
   const handleAddReportClick = () => {
     setShowReportList(false);
-    setCurrentForm(1); // Show the form
+    setCurrentForm(1);
     setShowGenerateReports(false);
     setShowProjectForms(false);
   };
@@ -244,13 +230,8 @@ const BodyContent = () => {
         await axios.delete(`/api/reports/${reportId}/`);
       }
       
-      try {
-        const reportsResponse = await axios.get('/api/reports/');
-        setReportData(Array.isArray(reportsResponse.data) ? 
-          reportsResponse.data : reportsResponse.data.results || []);
-      } catch (err) {
-        console.error('Error refreshing reports after deletion:', err);
-      }
+      const reportsResponse = await axios.get('/api/reports/');
+      setReportData(Array.isArray(reportsResponse.data) ? reportsResponse.data : reportsResponse.data.results || []);
       
       setSelectedReports([]);
       setLoading(false);
@@ -295,9 +276,8 @@ const BodyContent = () => {
     setShowProjectForms(false);
     setShowReportList(true);
   };
-  
 
-  if (loading && (!reportTypes.length && !departments.length)) {
+  if (loading) {
     return (
       <div className="loading-container">
         <div className="loading-spinner"></div>
@@ -307,7 +287,6 @@ const BodyContent = () => {
   }
   
   const hasApiErrors = Object.values(apiErrors).some(val => val);
-  
   
   return (
     <div className="body-content-container">
@@ -350,103 +329,100 @@ const BodyContent = () => {
         </div>
       ) : (
         <div className="main-content">
-  {currentForm === 1 && (
-    <form onSubmit={handleFirstSubmit} className="new-report-form">
-      <h2 className="form-title">Add New Report</h2>
-      <div className="form-group">
-        <label className="form-label">Project ID:</label>
-        <select value={newProjectID} onChange={handleExternalProjectChange} className="form-select">
-          <option value="">Select External Project</option>
-          {externalProjects.map(proj => (
-            <option key={proj.id || proj.project_id} value={proj.id || proj.project_id}>
-              {proj.name || proj.project_name || proj.id || proj.project_id}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Internal Project ID:</label>
-        <select value={newInternalprojectid} onChange={handleInternalProjectChange} className="form-select">
-          <option value="">Select Internal Project</option>
-          {internalProjects.map(proj => (
-            <option key={proj.id || proj.intrnl_project_id} value={proj.id || proj.intrnl_project_id}>
-              {proj.name || proj.project_name || proj.id || proj.intrnl_project_id}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Report Type:</label>
-        <select value={selectedReporttype} onChange={(e) => setSelectedReporttype(e.target.value)} className="form-select">
-          <option value="">Select Report Type</option>
-          {reportTypes.map((type, index) => (
-            <option key={index} value={type}>{type}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Report Title:</label>
-        <input 
-          type="text" 
-          value={newReporttitle} 
-          onChange={(e) => setNewReporttitle(e.target.value)} 
-          required 
-          className="form-input" 
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Received From:</label>
-        <input 
-          type="text" 
-          value={selectedReceivedform} 
-          onChange={(e) => setSelectedReceievedform(e.target.value)} 
-          className="form-input" 
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Date Created:</label>
-        <input 
-          type="date" 
-          value={newDatecreated} 
-          onChange={(e) => setNewDatecreated(e.target.value)} 
-          required 
-          className="form-input" 
-        />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Assigned To:</label>
-        <select value={selectedAssignedto} onChange={(e) => setSelectedAssignedto(e.target.value)} required className="form-select">
-          <option value="">Select Department</option>
-          {departments.map((dept, idx) => (
-            <option key={idx} value={dept}>{dept}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Description:</label>
-        <textarea 
-          value={newDescriptionreport} 
-          onChange={(e) => setNewDescriptionreport(e.target.value)} 
-          className="form-textarea" 
-        />
-      </div>
-      <div className="form-buttons">
-        <button type="submit" disabled={loading} className="save-btn">Save</button>
-        <button type="button" onClick={resetForm} disabled={loading} className="reset-btn">Reset</button>
-        <button type="button" onClick={handleBackClick} disabled={loading} className="back-to-list-btn">Back to List</button>
-          <button 
-              onClick={handleRejectionNotice} 
-              className="rejection-notice-btn"
-              disabled={loading}
-            >
-              Rejection Notice
-            </button>
-      </div>
-
-    </form>
-  )}
-
-
+          {currentForm === 1 && (
+            <form onSubmit={handleFirstSubmit} className="new-report-form">
+              <h2 className="form-title">Add New Report</h2>
+              <div className="form-group">
+                <label className="form-label">Project ID:</label>
+                <select value={newProjectID} onChange={handleExternalProjectChange} className="form-select">
+                  <option value="">Select External Project</option>
+                  {externalProjects.map(proj => (
+                    <option key={proj.id || proj.project_id} value={proj.id || proj.project_id}>
+                      {proj.name || proj.project_name || proj.id || proj.project_id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Internal Project ID:</label>
+                <select value={newInternalprojectid} onChange={handleInternalProjectChange} className="form-select">
+                  <option value="">Select Internal Project</option>
+                  {internalProjects.map(proj => (
+                    <option key={proj.id || proj.intrnl_project_id} value={proj.id || proj.intrnl_project_id}>
+                      {proj.name || proj.project_name || proj.id || proj.intrnl_project_id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Report Type:</label>
+                <select value={selectedReporttype} onChange={(e) => setSelectedReporttype(e.target.value)} className="form-select">
+                  <option value="">Select Report Type</option>
+                  {reportTypes.map((type, index) => (
+                    <option key={index} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Report Title:</label>
+                <input 
+                  type="text" 
+                  value={newReporttitle} 
+                  onChange={(e) => setNewReporttitle(e.target.value)} 
+                  required 
+                  className="form-input" 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Received From:</label>
+                <input 
+                  type="text" 
+                  value={selectedReceivedform} 
+                  onChange={(e) => setSelectedReceievedform(e.target.value)} 
+                  className="form-input" 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date Created:</label>
+                <input 
+                  type="date" 
+                  value={newDatecreated} 
+                  onChange={(e) => setNewDatecreated(e.target.value)} 
+                  required 
+                  className="form-input" 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Assigned To:</label>
+                <select value={selectedAssignedto} onChange={(e) => setSelectedAssignedto(e.target.value)} required className="form-select">
+                  <option value="">Select Department</option>
+                  {departments.map((dept, idx) => (
+                    <option key={idx} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Description:</label>
+                <textarea 
+                  value={newDescriptionreport} 
+                  onChange={(e) => setNewDescriptionreport(e.target.value)} 
+                  className="form-textarea" 
+                />
+              </div>
+              <div className="form-buttons">
+                <button type="submit" disabled={loading} className="save-btn">Save</button>
+                <button type="button" onClick={resetForm} disabled={loading} className="reset-btn">Reset</button>
+                <button type="button" onClick={handleBackClick} disabled={loading} className="back-to-list-btn">Back to List</button>
+                <button 
+                  onClick={handleRejectionNotice} 
+                  className="rejection-notice-btn"
+                  disabled={loading}
+                >
+                  Rejection Notice
+                </button>
+              </div>
+            </form>
+          )}
 
           {showReportList && (
             <div className="report-list-container">
@@ -565,4 +541,3 @@ const BodyContent = () => {
 };
 
 export default BodyContent;
-
