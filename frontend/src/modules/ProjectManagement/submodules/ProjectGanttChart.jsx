@@ -17,7 +17,6 @@ import {
   FaExclamationCircle
 } from "react-icons/fa";
 
-
 const ProjectGanttChart = ({ onBack }) => {
   // State for projects data
   const [externalProjects, setExternalProjects] = useState([]);
