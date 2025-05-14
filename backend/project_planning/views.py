@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
-from django.db import connection
+from django.db import connection, transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.core.cache import cache
@@ -540,7 +540,7 @@ class InternalProjectView(APIView, ValidationMixin):
     def post(self, request):
         logger.debug(f"Received data: {request.data}")
         
-        
+        # Extract data from request
         project_name = request.data.get('ProjectNameint')
         request_date = request.data.get('RequestDateint')
         starting_date = request.data.get('Startingdateint')
@@ -551,78 +551,79 @@ class InternalProjectView(APIView, ValidationMixin):
         equipment_needed = request.data.get('EquipmentNeededint')
         project_type = request.data.get('ProjectTypeint')
         
-        
+        # Validate required fields
         if not project_name:
             return Response({'error': 'Project name is required'}, status=status.HTTP_400_BAD_REQUEST)
         if not request_date:
             return Response({'error': 'Request date is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        
+        # Validate employee if provided
         if employee_id and not self.validate_employee_exists(employee_id):
             return Response(
                 {'error': f'Employee with ID {employee_id} not found. Please select a valid employee.'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        
+        # Validate project type
         valid_project_types = ["Training Program", "Department Event", "Facility Maintenance"]
-        
-        
         if project_type and project_type not in valid_project_types:
             return Response({
                 'error': f'Invalid project type: {project_type}. Valid types are: {valid_project_types}'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        
-        project_request_id = generate_id('IPR')
-        
-        
-        QueryExecutor.execute(
-            """
-            INSERT INTO project_management.internal_project_request
-            (project_request_id, project_name, request_date, employee_id, dept_id, 
-            reason_for_request, materials_needed, equipments_needed, project_type, is_archived)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            [
-                project_request_id, 
-                project_name,
-                request_date,
-                employee_id,
-                department_id,
-                reason_for_request,
-                materials_needed,
-                equipment_needed,
-                project_type,
-                False
-            ]
-        )
-        
-        logger.debug(f"Created internal project request with ID: {project_request_id}")
-        
-        
-        if starting_date:
-            try:
-                details_id = generate_id('IPD')
+        try:
+            with transaction.atomic():
+                # First, create the project request
+                project_request_id = generate_id('IPR')
+                
                 QueryExecutor.execute(
                     """
-                    INSERT INTO project_management.internal_project_details
-                    (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
-                    VALUES (%s, %s, %s, %s)
+                    INSERT INTO project_management.internal_project_request
+                    (project_request_id, project_name, request_date, employee_id, dept_id, 
+                    reason_for_request, materials_needed, equipments_needed, project_type, is_archived)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
-                    [details_id, project_request_id, 'not started', starting_date]
+                    [
+                        project_request_id, 
+                        project_name,
+                        request_date,
+                        employee_id,
+                        department_id,
+                        reason_for_request,
+                        materials_needed,
+                        equipment_needed,
+                        project_type,
+                        False
+                    ]
                 )
-                logger.debug(f"Created internal project details with ID: {details_id}")
-            except Exception as e:
-                logger.warning(f"Error creating project details: {str(e)}")
                 
-        
-        
-        return Response({
-            'project_request_id': project_request_id,
-            'project_name': project_name,
-            'message': 'Internal project request created successfully'
-        }, status=status.HTTP_201_CREATED)
+                logger.debug(f"Created internal project request with ID: {project_request_id}")
+                
+                # Then, create the project details if starting date is provided
+                if starting_date:
+                    details_id = generate_id('IPD')
+                    QueryExecutor.execute(
+                        """
+                        INSERT INTO project_management.internal_project_details
+                        (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        [details_id, project_request_id, 'not started', starting_date]
+                    )
+                    logger.debug(f"Created internal project details with ID: {details_id}")
+                
+                return Response({
+                    'project_request_id': project_request_id,
+                    'project_name': project_name,
+                    'message': 'Internal project request created successfully'
+                }, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            logger.error(f"Error creating internal project: {str(e)}")
+            return Response(
+                {'error': f'Failed to create internal project: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class UpdateInternalProjectDetailsView(APIView):

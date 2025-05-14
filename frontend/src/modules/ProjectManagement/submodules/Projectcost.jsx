@@ -317,22 +317,22 @@ const BodyContent = () => {
   const processApiData = (data) => {
     // Transform the API data to the format expected by the UI
     const formattedData = data.map(item => {
-      // Determine project type
+      // Determine project type and name
       let projectType = "unknown";
-      let projectName = "Unnamed Project";
+      let projectName;
       
       if (item.project_id && !item.intrnl_project_id) {
         projectType = "external";
-        projectName = `External Project ${item.project_id}`;
+        projectName = item.ext_project_name || `External Project ${item.project_id}`;
       } else if (item.intrnl_project_id && !item.project_id) {
         projectType = "internal";
-        projectName = `Internal Project ${item.intrnl_project_id}`;
+        projectName = item.internal_project_name || `Internal Project ${item.intrnl_project_id}`;
       } else if (item.project_id && item.intrnl_project_id) {
         // If both IDs are present, prioritize internal
         projectType = "internal";
-        projectName = `Internal Project ${item.intrnl_project_id}`;
+        projectName = item.internal_project_name || `Internal Project ${item.intrnl_project_id}`;
       }
-      
+
       // Parse cost values, ensuring they are numbers
       const laborCost = parseFloat(item.outside_labor_costs) || 0;
       const utilityCost = parseFloat(item.utility_costs) || 0;

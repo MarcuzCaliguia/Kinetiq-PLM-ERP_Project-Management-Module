@@ -1,0 +1,54 @@
+.project-request-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.project-request-table th,
+.project-request-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.project-request-table th {
+    background-color: #f5f5f5;
+    font-weight: 600;
+}
+
+/* Fixed column widths */
+.project-request-table .id-column {
+    width: 180px;
+}
+
+.project-request-table .project-name-column {
+    width: 200px;
+}
+
+.project-request-table .approval-column {
+    width: 120px;
+}
+
+.project-request-table .item-column {
+    width: 120px;
+}
+
+.project-request-table .date-column {
+    width: 120px;
+}
+
+.project-request-table .status-column {
+    width: 100px;
+}
+
+.project-request-table .actions-column {
+    width: 80px;
+}
+
+/* Handle text overflow */
+.project-request-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 0;
+}
