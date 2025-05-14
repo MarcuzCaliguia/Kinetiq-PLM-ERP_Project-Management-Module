@@ -623,10 +623,11 @@ const BodyContent = () => {
                     <div className="dashboard-row">
                         {/* Reminder Card */}
                         <div className="dashboard-section reminder-section">
+                             <div className="reminder-content">
                             <div className="section-header">
                                 <h2>Reminder</h2>
                             </div>
-                            <div className="reminder-content">
+                           
                                 <div className="reminder-tabs">
                                     <div 
                                         className={`reminder-tab ${activeTab === 'Today' ? 'active' : ''}`}
@@ -718,7 +719,7 @@ const BodyContent = () => {
                                 </div>
                             </div>
                         </div>
-
+                                        
                         {/* Task Completion Overtime Chart */}
                         <div className="dashboard-section task-completion-section">
                             <div className="section-header">

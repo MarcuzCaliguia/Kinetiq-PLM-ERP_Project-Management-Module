@@ -144,6 +144,7 @@
   width: 100%;
 }
 
+
 /* Tables */
 .data-table {
   width: 100%;
@@ -1800,7 +1801,7 @@
 }
 
 /* Improved Reminder Card Styles */
-.reminder-card {
+.reminder-content {
   background-color: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
