@@ -3,6 +3,8 @@ import { Doughnut, Line } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Chart, CategoryScale, LinearScale, PointElement, LineElement, Title, Legend, Filler } from 'chart.js';
 import "./styles/ProjectManagement.css";
 import axios from "axios";
+axios.defaults.baseURL = 'https://htm0n3ydog.execute-api.ap-southeast-1.amazonaws.com/dev';
+
 
 ChartJS.register(
   ArcElement, 
