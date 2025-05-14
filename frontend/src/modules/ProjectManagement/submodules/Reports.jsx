@@ -3,6 +3,8 @@ import axios from "axios";
 import "../styles/Reports.css";
 import GenerateReports from "./GenerateReports";
 import ProjectForms from "./ProjectForms";
+axios.defaults.baseURL = 'https://hp0w1llp43.execute-api.ap-southeast-1.amazonaws.com/dev';
+
 
 axios.defaults.xsrfCookieName = 'csrftoken';
 axios.defaults.xsrfHeaderName = 'X-CSRFToken';
