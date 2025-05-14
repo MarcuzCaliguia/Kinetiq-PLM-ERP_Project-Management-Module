@@ -40,24 +40,40 @@ def execute_query(query, params=None, fetch_all=True):
 @api_view(['GET'])
 @db_operation("retrieving internal tasks")
 def get_internal_tasks(request):
-    
     tasks = execute_query("""
         SELECT 
-            t.*,
+            pt.*,
             pl.employee_id,
             e.first_name,
             e.last_name,
             e.phone,
             e.employment_type,
-            e.status
+            e.status,
+            ipr.project_name
         FROM 
-            project_management.internal_project_tasks t
-        LEFT JOIN 
-            project_management.project_tasks pt ON t.task_id = pt.task_id
+            project_management.project_tasks pt
         LEFT JOIN 
             project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
         LEFT JOIN 
             human_resources.employees e ON pl.employee_id = e.employee_id
+        LEFT JOIN
+            project_management.internal_project_details ipd ON pt.intrnl_project_id = ipd.intrnl_project_id
+        LEFT JOIN
+            project_management.internal_project_request ipr ON ipd.project_request_id = ipr.project_request_id
+        WHERE 
+            pt.intrnl_project_id IS NOT NULL
+            AND (
+                pt.task_deadline >= CURRENT_DATE
+                OR (pt.task_deadline >= CURRENT_DATE - INTERVAL '30 days' AND pt.task_status != 'completed')
+            )
+        ORDER BY 
+            CASE 
+                WHEN pt.task_deadline < CURRENT_DATE THEN 2
+                WHEN pt.task_deadline = CURRENT_DATE THEN 0
+                ELSE 1
+            END,
+            pt.task_deadline ASC,
+            pt.task_id DESC
     """)
     logger.info(f"Internal tasks retrieved: {len(tasks)}")
     return Response(tasks)
@@ -65,32 +81,48 @@ def get_internal_tasks(request):
 @api_view(['GET'])
 @db_operation("retrieving external tasks")
 def get_external_tasks(request):
-    
     tasks = execute_query("""
         SELECT 
-            t.*,
+            pt.*,
             pl.employee_id,
             e.first_name,
             e.last_name,
             e.phone,
             e.employment_type,
-            e.status
+            e.status,
+            epr.ext_project_name as project_name
         FROM 
-            project_management.external_project_tasks t
-        LEFT JOIN 
-            project_management.project_tasks pt ON t.task_id = pt.task_id
+            project_management.project_tasks pt
         LEFT JOIN 
             project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
         LEFT JOIN 
             human_resources.employees e ON pl.employee_id = e.employee_id
+        LEFT JOIN
+            project_management.external_project_details epd ON pt.project_id = epd.project_id
+        LEFT JOIN
+            project_management.external_project_request epr ON epd.ext_project_request_id = epr.ext_project_request_id
+        WHERE 
+            pt.project_id IS NOT NULL
+            AND (
+                pt.task_deadline >= CURRENT_DATE
+                OR (pt.task_deadline >= CURRENT_DATE - INTERVAL '30 days' AND pt.task_status != 'completed')
+            )
+        ORDER BY 
+            CASE 
+                WHEN pt.task_deadline < CURRENT_DATE THEN 2
+                WHEN pt.task_deadline = CURRENT_DATE THEN 0
+                ELSE 1
+            END,
+            pt.task_deadline ASC,
+            pt.task_id DESC
     """)
     logger.info(f"External tasks retrieved: {len(tasks)}")
     return Response(tasks)
+
 @api_view(['POST'])
 @db_operation("creating external task")
 def create_external_task(request):
     logger.info(f"Creating external task with data: {request.data}")
-    
     
     data = request.data
     project_id = data.get('ProjectID')
@@ -98,7 +130,6 @@ def create_external_task(request):
     task_status = data.get('TaskStatus')
     task_deadline = data.get('Taskdeadline')
     project_labor_id = data.get('Laborid')
-    
     
     required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
                       'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
@@ -109,7 +140,6 @@ def create_external_task(request):
             {"detail": f"Missing required fields: {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
     
     project_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.external_project_details WHERE project_id = %s",
@@ -122,7 +152,6 @@ def create_external_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    
     labor_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
         [project_labor_id], fetch_all=False
@@ -134,11 +163,10 @@ def create_external_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    
     result = execute_query("""
         INSERT INTO project_management.project_tasks
-        (project_id, task_description, task_status, task_deadline, project_labor_id)
-        VALUES (%s, %s, %s, %s, %s)
+        (project_id, task_description, task_status, task_deadline, project_labor_id, intrnl_project_id)
+        VALUES (%s, %s, %s, %s, %s, NULL)
         RETURNING task_id
     """, [project_id, task_description, task_status, task_deadline, project_labor_id], fetch_all=False)
     
@@ -150,10 +178,19 @@ def create_external_task(request):
     
     task_id = result.get('task_id')
     
-    
     task_data = execute_query("""
-        SELECT * FROM project_management.external_project_tasks
-        WHERE task_id = %s
+        SELECT 
+            pt.*,
+            pl.employee_id,
+            e.first_name,
+            e.last_name,
+            epr.ext_project_name as project_name
+        FROM project_management.project_tasks pt
+        LEFT JOIN project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
+        LEFT JOIN human_resources.employees e ON pl.employee_id = e.employee_id
+        LEFT JOIN project_management.external_project_details epd ON pt.project_id = epd.project_id
+        LEFT JOIN project_management.external_project_request epr ON epd.ext_project_request_id = epr.ext_project_request_id
+        WHERE pt.task_id = %s
     """, [task_id], fetch_all=False) or {"task_id": task_id}
     
     return Response(task_data, status=status.HTTP_201_CREATED)
@@ -163,14 +200,12 @@ def create_external_task(request):
 def create_internal_task(request):
     logger.info(f"Creating internal task with data: {request.data}")
     
-    
     data = request.data
     project_id = data.get('ProjectID')
     task_description = data.get('TaskDescription', '')
     task_status = data.get('TaskStatus')
     task_deadline = data.get('Taskdeadline')
     project_labor_id = data.get('Laborid')
-    
     
     required_fields = {'ProjectID': project_id, 'TaskStatus': task_status, 
                       'Taskdeadline': task_deadline, 'Laborid': project_labor_id}
@@ -181,7 +216,6 @@ def create_internal_task(request):
             {"detail": f"Missing required fields: {', '.join(missing)}"},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
     
     project_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.internal_project_details WHERE intrnl_project_id = %s",
@@ -194,7 +228,6 @@ def create_internal_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    
     labor_exists = execute_query(
         "SELECT COUNT(*) as count FROM project_management.project_labor WHERE project_labor_id = %s",
         [project_labor_id], fetch_all=False
@@ -206,13 +239,12 @@ def create_internal_task(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    
     result = execute_query("""
         INSERT INTO project_management.project_tasks
-        (intrnl_project_id, task_description, task_status, task_deadline, project_labor_id)
-        VALUES (%s, %s, %s, %s, %s)
+        (project_id, task_description, task_status, task_deadline, project_labor_id, intrnl_project_id)
+        VALUES (NULL, %s, %s, %s, %s, %s)
         RETURNING task_id
-    """, [project_id, task_description, task_status, task_deadline, project_labor_id], fetch_all=False)
+    """, [task_description, task_status, task_deadline, project_labor_id, project_id], fetch_all=False)
     
     if not result:
         return Response(
@@ -222,10 +254,19 @@ def create_internal_task(request):
     
     task_id = result.get('task_id')
     
-    
     task_data = execute_query("""
-        SELECT * FROM project_management.internal_project_tasks
-        WHERE task_id = %s
+        SELECT 
+            pt.*,
+            pl.employee_id,
+            e.first_name,
+            e.last_name,
+            ipr.project_name
+        FROM project_management.project_tasks pt
+        LEFT JOIN project_management.project_labor pl ON pt.project_labor_id = pl.project_labor_id
+        LEFT JOIN human_resources.employees e ON pl.employee_id = e.employee_id
+        LEFT JOIN project_management.internal_project_details ipd ON pt.intrnl_project_id = ipd.intrnl_project_id
+        LEFT JOIN project_management.internal_project_request ipr ON ipd.project_request_id = ipr.project_request_id
+        WHERE pt.task_id = %s
     """, [task_id], fetch_all=False) or {"task_id": task_id}
     
     return Response(task_data, status=status.HTTP_201_CREATED)
@@ -272,6 +313,7 @@ def get_internal_projects(request):
         FROM project_management.internal_project_details ipd
         JOIN project_management.internal_project_request ipr 
         ON ipd.project_request_id = ipr.project_request_id
+        ORDER BY ipd.intrnl_project_id DESC
     """)
     
     logger.info(f"Internal projects retrieved: {len(projects)}")
@@ -285,6 +327,7 @@ def get_external_projects(request):
         FROM project_management.external_project_details epd
         JOIN project_management.external_project_request epr 
         ON epd.ext_project_request_id = epr.ext_project_request_id
+        ORDER BY epd.project_id DESC
     """)
     
     logger.info(f"External projects retrieved: {len(projects)}")

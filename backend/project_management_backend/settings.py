@@ -52,11 +52,43 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10
 }
 
-CORS_ALLOWED_ORIGINS = ["https://d2dhcd346f3g6s.cloudfront.net", "http://kinetiq-shell-app.s3-website-ap-southeast-1.amazonaws.com"] 
+CORS_ALLOWED_ORIGINS = ["https://d2dhcd346f3g6s.cloudfront.net", 
+                        "http://kinetiq-shell-app.s3-website-ap-southeast-1.amazonaws.com",
+                        "http://localhost:5173",] 
+
+# Add these new settings
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow requests from API Gateway domain
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://hp0w1llp43\.execute-api\.ap-southeast-1\.amazonaws\.com$"
+]
+
+# Additional CORS settings
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Move this to the top
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

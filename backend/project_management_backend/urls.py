@@ -29,7 +29,6 @@ def zappa_health_check(request):
     return JsonResponse({'status': 'ok'})
 
 urlpatterns = [
-    path('health/', zappa_health_check),
     path('', zappa_health_check),
 
     

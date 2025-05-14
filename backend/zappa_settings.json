@@ -13,9 +13,9 @@
         "project_name": "kinetiq-erp-projman",
         "runtime": "python3.12",
         "s3_bucket": "zappa-project-management",
-        "memory_size": 2048,
-        "timeout_seconds": 120,
-        "touch_path": "health/",
+        "touch_path": "",
+        "timeout": 60,  
+        "memory_size": 512,
         "vpc_config": {
             "SubnetIds": [
             "subnet-0afd6c1a25f45edca",

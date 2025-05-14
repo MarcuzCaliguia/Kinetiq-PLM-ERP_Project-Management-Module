@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "../styles/TaskMonitoring.css";
 import axios from 'axios';
-axios.defaults.baseURL = 'https://hp0w1llp43.execute-api.ap-southeast-1.amazonaws.com/dev';
 
 
 const API_URL = '/project-tasks/api';
@@ -493,7 +492,7 @@ const TaskMonitoring = () => {
       <div className="header-section">
         <h1 className="dashboard-title">
           <i className="fas fa-tasks"></i>
-          Task Management Dashboard
+          Task Management 
         </h1>
       </div>
       

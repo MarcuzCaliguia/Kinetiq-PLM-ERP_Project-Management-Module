@@ -13,7 +13,7 @@ class ProjectCosts(models.Model):
     overall_project_costs = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
-        db_table = 'project_management.project_costs'
+        db_table = 'project_costs'
 
 class ExternalProjectDetails(models.Model):
     PROJECT_STATUS_CHOICES = [
