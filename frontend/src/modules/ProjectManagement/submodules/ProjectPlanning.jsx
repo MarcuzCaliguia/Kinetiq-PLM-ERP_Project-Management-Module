@@ -1086,7 +1086,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                   currentExternalProjects.map(project => (
                     <tr key={project.project_request_id}>
                       <td>#{project.project_request_id || 'N/A'}</td>
-                      <td className="project-name">{project.project_name || 'N/A'}</td>
+                      <td>{project.project_name || 'N/A'}</td>
                       <td>{project.approval_id || 'N/A'}</td>
                       <td>{project.item_id || 'N/A'}</td>
                       <td className="date-cell">{project.start_date || 'Not set'}</td>
@@ -1169,7 +1169,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                   currentInternalProjects.map(project => (
                     <tr key={project.project_request_id}>
                       <td>#{project.project_request_id || 'N/A'}</td>
-                      <td className="project-name">{project.project_name || 'N/A'}</td>
+                      <td>{project.project_name || 'N/A'}</td>
                       <td>{project.approval_id || 'N/A'}</td>
                       <td className="date-cell">{project.request_date || 'Not set'}</td>
                       <td>{project.employee || 'Not assigned'}</td>
