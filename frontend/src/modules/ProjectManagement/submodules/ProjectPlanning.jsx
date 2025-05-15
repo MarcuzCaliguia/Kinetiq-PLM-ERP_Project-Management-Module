@@ -1524,9 +1524,11 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('externalProjectDetails', 'projectRequestId', e.target.value)}
               required
             >
-              <option value="">Select Project Request ID</option>
-              {projectRequestIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project Request</option>
+              {projectRequestIds.map((req) => (
+                <option key={req.id} value={req.id}>
+                  {req.name ? `${req.name} (${req.id})` : req.id}
+                </option>
               ))}
             </select>
           </div>
@@ -1587,9 +1589,11 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('externalProjectLabor', 'projectId', e.target.value)}
               required
             >
-              <option value="">Select Project ID</option>
-              {projectIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project</option>
+              {projectIds.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name ? `${project.name} (${project.id})` : project.id}
+                </option>
               ))}
             </select>
           </div>
@@ -1671,9 +1675,11 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('externalProjectEquipment', 'projectId', e.target.value)}
               required
             >
-              <option value="">Select Project ID</option>
-              {projectIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project</option>
+              {projectIds.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name ? `${project.name} (${project.id})` : project.id}
+                </option>
               ))}
             </select>
           </div>
@@ -1766,9 +1772,11 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('externalProjectWarranty', 'projectId', e.target.value)}
               required
             >
-              <option value="">Select Project ID</option>
-              {projectIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project</option>
+              {projectIds.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name ? `${project.name} (${project.id})` : project.id}
+                </option>
               ))}
             </select>
           </div>
@@ -1919,8 +1927,10 @@ const handleEditProject = (projectId, isInternal = false) => {
                 onChange={(e) => handleInputChange('internalProjectRequest', 'departmentId', e.target.value)}
               >
                 <option value="">Select Department</option>
-                {departmentIds.map((id) => (
-                  <option key={id} value={id}>{id}</option>
+                {departmentIds.map((dept) => (
+                  <option key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -2026,9 +2036,11 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('internalProjectDetails', 'projectRequestId', e.target.value)}
               required
             >
-              <option value="">Select Project Request ID</option>
-              {internalProjectRequestIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project Request</option>
+              {internalProjectRequestIds.map((req) => (
+                <option key={req.id} value={req.id}>
+                  {req.name ? `${req.name} (${req.id})` : req.id}
+                </option>
               ))}
             </select>
           </div>
@@ -2121,46 +2133,13 @@ const handleEditProject = (projectId, isInternal = false) => {
               onChange={(e) => handleInputChange('internalProjectLabor', 'projectId', e.target.value)}
               required
             >
-              <option value="">Select Project ID</option>
-              {internalProjectIds.map((id) => (
-                <option key={id} value={id}>{id}</option>
+              <option value="">Select Project</option>
+              {internalProjectIds.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
               ))}
             </select>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">
-                Job Role*
-              </label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="e.g. Project Manager, Engineer, Technician"
-                value={internalProjectLaborForm.jobRole}
-                onChange={(e) => handleInputChange('internalProjectLabor', 'jobRole', e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">
-                Employee*
-              </label>
-              <select
-                className="form-select"
-                value={internalProjectLaborForm.employeeId}
-                onChange={(e) => handleInputChange('internalProjectLabor', 'employeeId', e.target.value)}
-                required
-              >
-                <option value="">Select Employee</option>
-                {employeeIds.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <div className="form-row">
