@@ -16,6 +16,7 @@ from django.db.models import Prefetch, Q
 from django.core.cache.backends.base import DEFAULT_TIMEOUT
 from datetime import datetime
 import threading
+from django.core.exceptions import ValidationError
 
 from .models import (
     ExternalProjectRequest, ExternalProjectDetails, ExternalProjectLabor,
@@ -36,6 +37,21 @@ CACHE_TTL_LONG = getattr(settings, 'CACHE_TTL_LONG', 60 * 30)  # 30 minutes
 
 # Database settings
 DB_STATEMENT_TIMEOUT = getattr(settings, 'DB_STATEMENT_TIMEOUT', 15000)  # 15 seconds
+
+# Add constants
+PROJECT_STATUS_CHOICES = [
+    'not started',
+    'in progress',
+    'completed',
+    'on hold',
+    'cancelled'
+]
+
+INTERNAL_PROJECT_TYPES = [
+    "Training Program",
+    "Department Event",
+    "Facility Maintenance"
+]
 
 logger = logging.getLogger(__name__)
 
@@ -627,7 +643,7 @@ class UpdateExternalProjectDetailsView(APIView):
                 
                 # Get project request and details in separate queries
                 project_request = ExternalProjectRequest.objects.get(ext_project_request_id=project_request_id)
-                project_details = ExternalProjectDetails.objects.filter(ext_project_request_id=project_request_id).first()
+                project_details = ExternalProjectDetails.objects.filter(ext_project_request=project_request).first()
                 
                 logger.debug(f"Found project request: {project_request.ext_project_name}")
                 
@@ -638,7 +654,12 @@ class UpdateExternalProjectDetailsView(APIView):
                     logger.debug(f"Found existing project details with ID: {project_id}")
                 
                 new_status = request.data.get('project_status')
-                new_approval_id = request.data.get('approval_id')
+                
+                # Validate project status
+                if new_status and new_status not in PROJECT_STATUS_CHOICES:
+                    return Response({
+                        'error': f'Invalid project status. Must be one of: {", ".join(PROJECT_STATUS_CHOICES)}'
+                    }, status=status.HTTP_400_BAD_REQUEST)
                 
                 if project_details_exist:
                     # Build update query dynamically
@@ -649,20 +670,20 @@ class UpdateExternalProjectDetailsView(APIView):
                         update_fields.append("project_status = %s")
                         update_values.append(new_status)
                     
-                    if new_approval_id:
-                        update_fields.append("approval_id = %s")
-                        update_values.append(new_approval_id)
-                    
                     if update_fields:
-                        QueryExecutor.execute(
-                            f"""
-                            UPDATE project_management.external_project_details
-                            SET {', '.join(update_fields)}
-                            WHERE ext_project_request_id = %s
-                            """,
-                            update_values + [project_request_id]
-                        )
-                        logger.debug(f"Updated project details for request ID: {project_request_id}")
+                        try:
+                            QueryExecutor.execute(
+                                f"""
+                                UPDATE project_management.external_project_details
+                                SET {', '.join(update_fields)}
+                                WHERE ext_project_request_id = %s
+                                """,
+                                update_values + [project_request_id]
+                            )
+                            logger.debug(f"Updated project details for request ID: {project_request_id}")
+                        except Exception as e:
+                            logger.error(f"Database error updating project details: {str(e)}")
+                            raise
                 else:
                     # Create new project details
                     new_project_id = generate_id('EPD')
@@ -671,27 +692,35 @@ class UpdateExternalProjectDetailsView(APIView):
                     if not new_status:
                         new_status = 'not started'
                     
-                    QueryExecutor.execute(
-                        """
-                        INSERT INTO project_management.external_project_details
-                        (project_id, ext_project_request_id, project_status, approval_id)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        [new_project_id, project_request_id, new_status, new_approval_id]
-                    )
-                    logger.debug(f"Created new project details with ID: {new_project_id}")
+                    try:
+                        QueryExecutor.execute(
+                            """
+                            INSERT INTO project_management.external_project_details
+                            (project_id, ext_project_request_id, project_status)
+                            VALUES (%s, %s, %s)
+                            """,
+                            [new_project_id, project_request_id, new_status]
+                        )
+                        logger.debug(f"Created new project details with ID: {new_project_id}")
+                    except Exception as e:
+                        logger.error(f"Database error creating project details: {str(e)}")
+                        raise
                 
                 # Update project description if provided
                 if 'project_description' in request.data and request.data['project_description']:
-                    QueryExecutor.execute(
-                        """
-                        UPDATE project_management.external_project_request
-                        SET ext_project_description = %s
-                        WHERE ext_project_request_id = %s
-                        """,
-                        [request.data['project_description'], project_request_id]
-                    )
-                    logger.debug(f"Updated project description for request ID: {project_request_id}")
+                    try:
+                        QueryExecutor.execute(
+                            """
+                            UPDATE project_management.external_project_request
+                            SET ext_project_description = %s
+                            WHERE ext_project_request_id = %s
+                            """,
+                            [request.data['project_description'], project_request_id]
+                        )
+                        logger.debug(f"Updated project description for request ID: {project_request_id}")
+                    except Exception as e:
+                        logger.error(f"Database error updating project description: {str(e)}")
+                        raise
                 
                 # Clear relevant caches
                 clear_related_caches(['project_details_', 'external_project_ids', 'project_status_values'])
@@ -700,7 +729,6 @@ class UpdateExternalProjectDetailsView(APIView):
                     'project_id': project_id,
                     'project_request_id': project_request_id,
                     'project_status': new_status,
-                    'approval_id': new_approval_id,
                     'message': 'Project details updated successfully'
                 })
         except ExternalProjectRequest.DoesNotExist:
@@ -832,6 +860,20 @@ class InternalProjectView(APIView, ValidationMixin):
         if not request_date:
             return Response({'error': 'Request date is required'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Validate dates
+        try:
+            request_date_dt = datetime.strptime(request_date, '%Y-%m-%d').date()
+            if starting_date:
+                starting_date_dt = datetime.strptime(starting_date, '%Y-%m-%d').date()
+                if starting_date_dt < request_date_dt:
+                    return Response({
+                        'error': 'Starting date cannot be before request date'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({
+                'error': 'Invalid date format. Use YYYY-MM-DD format.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         # Validate employee if provided
         if employee_id and not self.validate_employee_exists(employee_id):
             return Response(
@@ -839,68 +881,91 @@ class InternalProjectView(APIView, ValidationMixin):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Validate department if provided
+        if department_id:
+            try:
+                department_exists = QueryExecutor.execute(
+                    """
+                    SELECT 1 FROM human_resources.departments 
+                    WHERE dept_id = %s LIMIT 1
+                    """,
+                    [department_id],
+                    fetchone=True
+                )
+                if not department_exists:
+                    return Response({
+                        'error': f'Department with ID {department_id} not found'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except Exception as e:
+                logger.error(f"Error validating department: {str(e)}")
+                return Response({
+                    'error': 'Failed to validate department'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         # Validate project type
-        valid_project_types = ["Training Program", "Department Event", "Facility Maintenance"]
-        if project_type and project_type not in valid_project_types:
+        if project_type and project_type not in INTERNAL_PROJECT_TYPES:
             return Response({
-                'error': f'Invalid project type: {project_type}. Valid types are: {valid_project_types}'
+                'error': f'Invalid project type: {project_type}. Valid types are: {", ".join(INTERNAL_PROJECT_TYPES)}'
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             with transaction.atomic():
-                # First, create the project request
-                project_request_id = generate_id('IPR')
+                # Insert project request (let DB trigger generate project_request_id)
+                try:
+                    QueryExecutor.execute(
+                        """
+                        INSERT INTO project_management.internal_project_request
+                        (project_name, request_date, employee_id, dept_id, 
+                        reason_for_request, materials_needed, equipments_needed, project_type)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        [
+                            project_name,
+                            request_date,
+                            employee_id,
+                            department_id,
+                            reason_for_request,
+                            materials_needed,
+                            equipment_needed,
+                            project_type
+                        ]
+                    )
+                    logger.debug(f"Inserted internal project request for {project_name} on {request_date}")
+                except Exception as e:
+                    logger.error(f"Database error creating project request: {str(e)}")
+                    raise
                 
-                # Insert project request
-                QueryExecutor.execute(
-                    """
-                    INSERT INTO project_management.internal_project_request
-                    (project_request_id, project_name, request_date, employee_id, dept_id, 
-                    reason_for_request, materials_needed, equipments_needed, project_type, is_archived)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    [
-                        project_request_id, 
-                        project_name,
-                        request_date,
-                        employee_id,
-                        department_id,
-                        reason_for_request,
-                        materials_needed,
-                        equipment_needed,
-                        project_type,
-                        False
-                    ]
-                )
-                
-                logger.debug(f"Created internal project request with ID: {project_request_id}")
-                
-                # Verify the project request was created
-                project_request = QueryExecutor.execute(
+                # Fetch the most recent project_request_id for this project
+                project_request_row = QueryExecutor.execute(
                     """
                     SELECT project_request_id 
                     FROM project_management.internal_project_request 
-                    WHERE project_request_id = %s
+                    WHERE project_name = %s AND request_date = %s AND (employee_id = %s OR (%s IS NULL AND employee_id IS NULL))
+                    ORDER BY project_request_id DESC LIMIT 1
                     """,
-                    [project_request_id],
+                    [project_name, request_date, employee_id, employee_id],
                     fetchone=True
                 )
-                
-                if not project_request:
+                if not project_request_row:
                     raise Exception("Failed to create project request")
+                project_request_id = project_request_row[0]
                 
                 # Then, create the project details if starting date is provided
                 if starting_date:
                     details_id = generate_id('IPD')
-                    QueryExecutor.execute(
-                        """
-                        INSERT INTO project_management.internal_project_details
-                        (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
-                        VALUES (%s, %s, %s, %s)
-                        """,
-                        [details_id, project_request_id, 'not started', starting_date]
-                    )
-                    logger.debug(f"Created internal project details with ID: {details_id}")
+                    try:
+                        QueryExecutor.execute(
+                            """
+                            INSERT INTO project_management.internal_project_details
+                            (intrnl_project_id, project_request_id, intrnl_project_status, start_date)
+                            VALUES (%s, %s, %s, %s)
+                            """,
+                            [details_id, project_request_id, 'not started', starting_date]
+                        )
+                        logger.debug(f"Created internal project details with ID: {details_id}")
+                    except Exception as e:
+                        logger.error(f"Database error creating project details: {str(e)}")
+                        raise
                 
                 # Clear relevant caches
                 clear_related_caches(['internal_project_request_ids', 'internal_project_ids'])
@@ -1288,41 +1353,26 @@ class EmployeeIdsView(CachedListView):
     
     def get_data(self):
         try:
-            
             employees = QueryExecutor.execute("""
                 SELECT employee_id, first_name, last_name 
                 FROM human_resources.employees 
                 WHERE employee_id IS NOT NULL
             """, fetchall=True)
-            
             if employees:
                 return [{
                     "id": emp['employee_id'], 
-                    "name": f"{emp['first_name']} {emp['last_name']}"
+                    "name": f"{emp['employee_id']} - {emp['first_name']} {emp['last_name']}"
                 } for emp in employees]
-            
-            
-            employees = QueryExecutor.execute("""
-                SELECT DISTINCT pl.employee_id, e.first_name, e.last_name
-                FROM project_management.project_labor pl
-                JOIN human_resources.employees e ON pl.employee_id = e.employee_id
-                WHERE pl.employee_id IS NOT NULL
-            """, fetchall=True)
-            
-            if employees:
-                return [{
-                    "id": emp['employee_id'], 
-                    "name": f"{emp['first_name']} {emp['last_name']}"
-                } for emp in employees]
+            # If no employees, return empty list
+            return []
         except Exception as e:
             logger.warning(f"Could not query employees: {str(e)}")
-        
-        
-        return [
-            {"id": "EMP-001", "name": "John Doe"},
-            {"id": "EMP-002", "name": "Jane Smith"},
-            {"id": "EMP-003", "name": "Michael Johnson"}
-        ]
+            # Only return mock data if there was a query error
+            return [
+                {"id": "EMP-001", "name": "EMP-001 - John Doe"},
+                {"id": "EMP-002", "name": "EMP-002 - Jane Smith"},
+                {"id": "EMP-003", "name": "EMP-003 - Michael Johnson"}
+            ]
 
 
 class EquipmentIdsView(CachedListView):
@@ -1384,13 +1434,16 @@ class DepartmentIdsView(CachedListView):
                 WHERE dept_id IS NOT NULL
                 ORDER BY dept_name
             """, fetchall=True)
-            
-            return [{
-                "id": dept['dept_id'],
-                "name": dept['dept_name']
-            } for dept in departments]
+            if departments:
+                return [{
+                    "id": dept['dept_id'],
+                    "name": dept['dept_name']
+                } for dept in departments]
+            # If no departments, return empty list
+            return []
         except Exception as e:
             logger.warning(f"Could not query departments: {str(e)}")
+            # Only return mock data if there was a query error
             return []
 
 

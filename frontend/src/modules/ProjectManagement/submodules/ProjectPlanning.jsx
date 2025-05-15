@@ -13,10 +13,10 @@ import {
   FaChartLine, 
   FaArrowLeft, 
   FaPlus, 
+  FaBuilding,
   FaRegCalendarAlt, 
   FaFilter, 
   FaExternalLinkAlt, 
-  FaBuilding, 
   FaEdit, 
   FaEye, 
   FaCheckCircle, 
@@ -138,94 +138,97 @@ const ProjectPlanningDashboard = () => {
     employeeId: ""
   });
 
-  // Fetch all dropdown data on component mount
+  // Add fetch functions at the top, after useState declarations
+  const fetchApprovalIds = async () => {
+    const res = await axios.get('/api/project-planning/get-external-approval-ids/').catch(() => ({ data: [] }));
+    setApprovalIds(res.data);
+  };
+  const fetchInternalApprovalIds = async () => {
+    const res = await axios.get('/api/project-planning/get-internal-approval-ids/').catch(() => ({ data: [] }));
+    setInternalApprovalIds(res.data);
+  };
+  const fetchOrderIds = async () => {
+    const res = await axios.get('/api/project-planning/get-order-ids/').catch(() => ({ data: [] }));
+    setOrderIds(res.data);
+  };
+  const fetchProjectRequestIds = async () => {
+    const res = await axios.get('/api/project-planning/get-external-project-request-ids/').catch(() => ({ data: [] }));
+    setProjectRequestIds(res.data);
+  };
+  const fetchProjectIds = async () => {
+    const res = await axios.get('/api/project-planning/get-external-project-ids/').catch(() => ({ data: [] }));
+    setProjectIds(res.data);
+  };
+  const fetchEmployeeIds = async () => {
+    const res = await axios.get('/api/project-planning/get-employee-ids/').catch(() => ({ data: [] }));
+    setEmployeeIds(res.data);
+  };
+  const fetchEquipmentIds = async () => {
+    const res = await axios.get('/api/project-planning/get-equipment-ids/').catch(() => ({ data: [] }));
+    setEquipmentIds(res.data);
+  };
+  const fetchEquipmentNames = async () => {
+    try {
+      const res = await axios.get('/api/project-planning/get-equipment-names/');
+      setEquipmentNames(res.data);
+    } catch {
+      setEquipmentNames([
+        { id: "EQ-001", name: "Drill Machine" },
+        { id: "EQ-002", name: "Welding Equipment" },
+        { id: "EQ-003", name: "Forklift" },
+        { id: "EQ-004", name: "Concrete Mixer" },
+        { id: "EQ-005", name: "Excavator" }
+      ]);
+    }
+  };
+  const fetchInternalProjectRequestIds = async () => {
+    const res = await axios.get('/api/project-planning/get-internal-project-request-ids/').catch(() => ({ data: [] }));
+    setInternalProjectRequestIds(res.data);
+  };
+  const fetchInternalProjectIds = async () => {
+    const res = await axios.get('/api/project-planning/get-internal-project-ids/').catch(() => ({ data: [] }));
+    setInternalProjectIds(res.data);
+  };
+  const fetchDepartmentIds = async () => {
+    const res = await axios.get('/api/project-planning/get-department-ids/').catch(() => ({ data: [] }));
+    setDepartmentIds(res.data);
+  };
+  const fetchProjectStatusOptions = async () => {
+    const res = await axios.get('/api/project-planning/get-project-status-values/').catch(() => ({ data: ['not started', 'in progress', 'completed'] }));
+    setProjectStatusOptions(res.data);
+  };
+  const fetchInternalProjectStatusOptions = async () => {
+    const res = await axios.get('/api/project-planning/get-internal-project-status-values/').catch(() => ({ data: ['not started', 'in progress', 'completed'] }));
+    setInternalProjectStatusOptions(res.data);
+  };
+  const fetchExternalProjectsList = async () => {
+    const res = await axios.get('/api/project-planning/get-external-project-requests-list/').catch(() => ({ data: [] }));
+    setExternalProjectsList(res.data || []);
+  };
+  const fetchInternalProjectsList = async () => {
+    const res = await axios.get('/api/project-planning/get-internal-project-requests-list/').catch(() => ({ data: [] }));
+    setInternalProjectsList(res.data || []);
+  };
+
+  // Update useEffect to use these fetch functions
   useEffect(() => {
-    const fetchDropdownData = async () => {
-      try {
-        // First fetch internal approval IDs separately
-        const internalApprovalRes = await axios.get('/api/project-planning/get-internal-approval-ids/')
-          .catch(e => {
-            console.error("Error fetching internal approval IDs:", e);
-            return { data: [] };
-          });
-        setInternalApprovalIds(internalApprovalRes.data);
-        
-        // Create an array of promises for all other API calls
-        const apiCalls = [
-          axios.get('/api/project-planning/get-external-approval-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-order-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-external-project-request-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-external-project-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-employee-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-equipment-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-internal-project-request-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-internal-project-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-department-ids/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-project-status-values/').catch(e => ({ data: ['not started', 'in progress', 'completed'] })),
-          axios.get('/api/project-planning/get-internal-project-status-values/').catch(e => ({ data: ['not started', 'in progress', 'completed'] })),
-          axios.get('/api/project-planning/get-external-project-requests-list/').catch(e => ({ data: [] })),
-          axios.get('/api/project-planning/get-internal-project-requests-list/').catch(e => ({ data: [] }))
-        ];
-        
-        // Execute all API calls in parallel
-        const [
-          approvalRes, 
-          orderRes, 
-          projectReqRes, 
-          projectIdRes, 
-          employeeRes, 
-          equipmentRes,
-          intProjectReqRes,
-          intProjectIdRes,
-          departmentRes,
-          projectStatusRes,
-          internalProjectStatusRes,
-          externalListRes,
-          internalListRes
-        ] = await Promise.all(apiCalls);
-        
-        // Set state with the results
-        setApprovalIds(approvalRes.data);
-        setOrderIds(orderRes.data);
-        setProjectRequestIds(projectReqRes.data);
-        setProjectIds(projectIdRes.data);
-        setEmployeeIds(employeeRes.data);
-        setEquipmentIds(equipmentRes.data);
-        setInternalProjectRequestIds(intProjectReqRes.data);
-        setInternalProjectIds(intProjectIdRes.data);
-        setDepartmentIds(departmentRes.data);
-        setProjectStatusOptions(projectStatusRes.data);
-        setInternalProjectStatusOptions(internalProjectStatusRes.data);
-        setExternalProjectsList(externalListRes.data || []);
-        setInternalProjectsList(internalListRes.data || []);
-        setCurrentExternalPage(1);
-        setCurrentInternalPage(1);
-        
-        // Fetch equipment names
-        try {
-          const equipmentNamesRes = await axios.get('/api/project-planning/get-equipment-names/');
-          setEquipmentNames(equipmentNamesRes.data);
-        } catch (error) {
-          console.error("Error fetching equipment names:", error);
-          // Create some mock equipment names if the API call fails
-          setEquipmentNames([
-            { id: "EQ-001", name: "Drill Machine" },
-            { id: "EQ-002", name: "Welding Equipment" },
-            { id: "EQ-003", name: "Forklift" },
-            { id: "EQ-004", name: "Concrete Mixer" },
-            { id: "EQ-005", name: "Excavator" }
-          ]);
-        }
-      } catch (error) {
-        console.error("Error fetching dropdown data:", error);
-        setMessage({ 
-          text: "Some data could not be loaded. The application may have limited functionality.", 
-          type: "warning" 
-        });
-      }
-    };
-    
-    fetchDropdownData();
+    fetchInternalApprovalIds();
+    fetchApprovalIds();
+    fetchOrderIds();
+    fetchProjectRequestIds();
+    fetchProjectIds();
+    fetchEmployeeIds();
+    fetchEquipmentIds();
+    fetchInternalProjectRequestIds();
+    fetchInternalProjectIds();
+    fetchDepartmentIds();
+    fetchProjectStatusOptions();
+    fetchInternalProjectStatusOptions();
+    fetchExternalProjectsList();
+    fetchInternalProjectsList();
+    fetchEquipmentNames();
+    setCurrentExternalPage(1);
+    setCurrentInternalPage(1);
   }, []);
 
   // Handle form input changes
@@ -413,12 +416,10 @@ const handleEditProject = (projectId, isInternal = false) => {
       });
       
       // Refresh project request IDs
-      const projectReqRes = await axios.get('/api/project-planning/get-external-project-request-ids/');
-      setProjectRequestIds(projectReqRes.data);
+      await fetchProjectRequestIds();
       
       // Refresh external projects list
-      const externalListRes = await axios.get('/api/project-planning/get-external-project-requests-list/');
-      setExternalProjectsList(externalListRes.data || []);
+      await fetchExternalProjectsList();
       
       // Reset form
       setExternalProjectRequestForm({
@@ -474,12 +475,10 @@ const handleEditProject = (projectId, isInternal = false) => {
       });
       
       // Refresh project IDs
-      const projectIdRes = await axios.get('/api/project-planning/get-external-project-ids/');
-      setProjectIds(projectIdRes.data);
+      await fetchProjectIds();
       
       // Refresh external projects list
-      const externalListRes = await axios.get('/api/project-planning/get-external-project-requests-list/');
-      setExternalProjectsList(externalListRes.data || []);
+      await fetchExternalProjectsList();
       
       // Reset form
       setExternalProjectDetailsForm({
@@ -766,15 +765,10 @@ const handleEditProject = (projectId, isInternal = false) => {
         type: "success" 
       });
       
-      // Refresh internal project request IDs
-      const intProjectReqRes = await axios.get('/api/project-planning/get-internal-project-request-ids/');
-      setInternalProjectRequestIds(intProjectReqRes.data);
-      
-      // Refresh internal projects list
-      const internalListRes = await axios.get('/api/project-planning/get-internal-project-requests-list/');
-      setInternalProjectsList(internalListRes.data || []);
-      
-      // Reset form
+      // Refetch all relevant data
+      await fetchInternalProjectRequestIds();
+      await fetchInternalProjectsList();
+      await fetchInternalProjectIds();
       setInternalProjectRequestForm({
         projectName: "",
         requestDate: "",
@@ -786,8 +780,6 @@ const handleEditProject = (projectId, isInternal = false) => {
         equipmentNeeded: "",
         projectType: ""
       });
-      
-      // Return to dashboard
       setActiveView("dashboard");
     } catch (error) {
       console.error("Error creating internal project:", error);
@@ -834,23 +826,15 @@ const handleEditProject = (projectId, isInternal = false) => {
         type: "success" 
       });
       
-      // Refresh internal project IDs
-      const intProjectIdRes = await axios.get('/api/project-planning/get-internal-project-ids/');
-      setInternalProjectIds(intProjectIdRes.data);
-      
-      // Refresh internal projects list
-      const internalListRes = await axios.get('/api/project-planning/get-internal-project-requests-list/');
-      setInternalProjectsList(internalListRes.data || []);
-      
-      // Reset form
+      // Refetch all relevant data
+      await fetchInternalProjectIds();
+      await fetchInternalProjectsList();
       setInternalProjectDetailsForm({
         projectRequestId: "",
         projectStatus: "",
         approvalId: "",
         projectDescription: ""
       });
-      
-      // Return to dashboard
       setActiveView("dashboard");
     } catch (error) {
       console.error("Error updating internal project details:", error);
@@ -1527,7 +1511,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project Request</option>
               {projectRequestIds.map((req) => (
                 <option key={req.id} value={req.id}>
-                  {req.name ? `${req.name} (${req.id})` : req.id}
+                  {req.id}{req.name ? ` - ${req.name}` : ''}
                 </option>
               ))}
             </select>
@@ -1592,7 +1576,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project</option>
               {projectIds.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name ? `${project.name} (${project.id})` : project.id}
+                  {project.id}{project.name ? ` - ${project.name}` : ''}
                 </option>
               ))}
             </select>
@@ -1626,7 +1610,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                 <option value="">Select Employee</option>
                 {employeeIds.map((employee) => (
                   <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
+                    {employee.name}
                   </option>
                 ))}
               </select>
@@ -1678,7 +1662,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project</option>
               {projectIds.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name ? `${project.name} (${project.id})` : project.id}
+                  {project.id}{project.name ? ` - ${project.name}` : ''}
                 </option>
               ))}
             </select>
@@ -1775,7 +1759,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project</option>
               {projectIds.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name ? `${project.name} (${project.id})` : project.id}
+                  {project.id}{project.name ? ` - ${project.name}` : ''}
                 </option>
               ))}
             </select>
@@ -1911,7 +1895,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                 <option value="">Select Employee</option>
                 {employeeIds.map((employee) => (
                   <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
+                    {employee.name}
                   </option>
                 ))}
               </select>
@@ -2039,7 +2023,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project Request</option>
               {internalProjectRequestIds.map((req) => (
                 <option key={req.id} value={req.id}>
-                  {req.name ? `${req.name} (${req.id})` : req.id}
+                  {req.id}{req.name ? ` - ${req.name}` : ''}
                 </option>
               ))}
             </select>
@@ -2136,7 +2120,7 @@ const handleEditProject = (projectId, isInternal = false) => {
               <option value="">Select Project</option>
               {internalProjectIds.map((project) => (
                 <option key={project.id} value={project.id}>
-                  {project.name}
+                  {project.id}{project.name ? ` - ${project.name}` : ''}
                 </option>
               ))}
             </select>
@@ -2170,7 +2154,7 @@ const handleEditProject = (projectId, isInternal = false) => {
                 <option value="">Select Employee</option>
                 {employeeIds.map((employee) => (
                   <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.id})
+                    {employee.name}
                   </option>
                 ))}
               </select>
